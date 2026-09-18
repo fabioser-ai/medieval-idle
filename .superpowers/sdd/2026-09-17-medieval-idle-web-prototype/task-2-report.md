@@ -68,3 +68,44 @@ vite build completed successfully; dist/index.html created.
 ## Concerns
 
 The requested `task-2-brief.md` was not present in the worktree. The checked-in implementation plan’s Task 2 section was used as the requirements fallback; no conflicting task-specific brief was available to compare against.
+
+## Fix round 1 — reviewer findings
+
+### RED evidence
+
+Added regression assertions before changing production code for malformed collection values and runtime immutability. The targeted run failed as expected:
+
+```text
+npm test -- tests/unit/army.test.ts
+Test Files  1 failed (1)
+Tests       2 failed | 6 passed (8)
+```
+
+The failures were the missing malformed-collection error and unfrozen exported value tables.
+
+### GREEN evidence
+
+Implemented the smallest fixes:
+
+- `validateDeployment` now reports non-array `groups` and non-array `cohorts` instead of treating either as empty.
+- Fixtures/tests explicitly exercise all four unit types, all four tiers, all five formation slots (including an empty slot), and both army sides.
+- Clone tests verify deep freezing at the deployment, group-array, group, cohort-array, and cohort levels.
+- Exported literal tables are runtime-frozen with `Object.freeze`.
+
+The targeted test then passed:
+
+```text
+npm test -- tests/unit/army.test.ts
+Test Files  1 passed (1)
+Tests       8 passed (8)
+```
+
+Final fix-round verification also passed:
+
+```text
+npm test              # 1 file, 8/8 tests passed
+npm run lint          # exit 0
+npm run format:check  # all files formatted
+npm run build         # TypeScript check and Vite build succeeded
+git diff --check      # no whitespace errors
+```

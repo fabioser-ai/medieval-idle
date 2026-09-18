@@ -21,29 +21,29 @@ export interface ArmyDeployment {
   readonly groups: readonly FormationGroup[];
 }
 
-export const UNIT_TYPES: readonly UnitType[] = [
+export const UNIT_TYPES: readonly UnitType[] = Object.freeze([
   'infantry',
   'archer',
   'spearman',
   'cavalry',
-];
+]);
 
-export const EXPERIENCE_TIERS: readonly ExperienceTier[] = [
+export const EXPERIENCE_TIERS: readonly ExperienceTier[] = Object.freeze([
   'recruit',
   'trained',
   'veteran',
   'elite',
-];
+]);
 
-export const FORMATION_SLOTS: readonly FormationSlot[] = [
+export const FORMATION_SLOTS: readonly FormationSlot[] = Object.freeze([
   'front',
   'middle',
   'rear',
   'left-flank',
   'right-flank',
-];
+]);
 
-export const ARMY_SIDES: readonly ArmySide[] = ['left', 'right'];
+export const ARMY_SIDES: readonly ArmySide[] = Object.freeze(['left', 'right']);
 
 const isUnitType = (value: unknown): value is UnitType =>
   typeof value === 'string' &&
@@ -78,6 +78,9 @@ export function validateDeployment(deployment: ArmyDeployment): string[] {
   }
 
   const groups = Array.isArray(value.groups) ? value.groups : [];
+  if (!Array.isArray(value.groups)) {
+    errors.push('Formation groups must be an array.');
+  }
   const slots = groups.map((group) =>
     typeof group === 'object' && group !== null
       ? (group as { slot?: unknown }).slot
@@ -104,6 +107,9 @@ export function validateDeployment(deployment: ArmyDeployment): string[] {
     }
 
     const cohorts = Array.isArray(groupValue.cohorts) ? groupValue.cohorts : [];
+    if (!Array.isArray(groupValue.cohorts)) {
+      errors.push('Cohorts must be an array.');
+    }
     for (const cohort of cohorts) {
       if (typeof cohort !== 'object' || cohort === null) {
         errors.push('Unit cohort is invalid.');
