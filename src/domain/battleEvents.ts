@@ -58,6 +58,16 @@ export type BattleEvent =
       readonly winner: ArmySide | null;
     });
 
+/** Compact immutable replay sequence. Stream or seek; do not materialize large logs. */
+export interface BattleEventLog extends Iterable<BattleEvent> {
+  readonly length: number;
+  /** Allocated compact column storage, excluding small bookkeeping objects. */
+  readonly byteLength: number;
+  at(index: number): BattleEvent | undefined;
+  /** Index of the first event at or after tick (length when past the end). */
+  findTick(tick: number): number;
+}
+
 export interface BattleResult {
   readonly outcome: BattleOutcome;
   readonly winner: ArmySide | null;
@@ -66,5 +76,5 @@ export interface BattleResult {
   readonly durationTicks: number;
   readonly seed: number;
   readonly initialUnits: readonly BattleUnitSnapshot[];
-  readonly events: readonly BattleEvent[];
+  readonly events: BattleEventLog;
 }

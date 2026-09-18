@@ -1,10 +1,6 @@
 import { totalLivingUnits, validateDeployment } from './army';
 import type { ArmyDeployment, ArmySide } from './army';
-import type {
-  BattleEvent,
-  BattleResult,
-  BattleUnitSnapshot,
-} from './battleEvents';
+import type { BattleResult, BattleUnitSnapshot } from './battleEvents';
 import {
   COMBAT_TUNING,
   formationMultiplier,
@@ -13,6 +9,8 @@ import {
   resolveDamage,
 } from './combatRules';
 import type { UnitStats } from './combatRules';
+import { createTargetIndex } from './targetIndex';
+import { BattleEventLogBuilder } from './battleEventLog';
 
 export type { BattleResult } from './battleEvents';
 
@@ -22,7 +20,7 @@ export const SIMULATION_TUNING = Object.freeze({
   distanceScale: 0.05,
   marchSpeedMultiplier: 0.6,
   maxTicks: 100_000,
-  maxUnits: 10_000,
+  maxUnits: 4_000,
 });
 
 export interface BattleSimulationOptions {
@@ -126,21 +124,6 @@ function snapshot(unit: SimUnit): BattleUnitSnapshot {
   };
 }
 
-function nearestTarget(unit: SimUnit, opponents: readonly SimUnit[]): SimUnit {
-  // Opponents retain ascending ID order, so strict comparison keeps the lowest-ID tie.
-  let nearest = opponents[0];
-  let distance = Math.abs(nearest.position - unit.position);
-  for (let index = 1; index < opponents.length; index += 1) {
-    const candidate = opponents[index];
-    const candidateDistance = Math.abs(candidate.position - unit.position);
-    if (candidateDistance < distance) {
-      nearest = candidate;
-      distance = candidateDistance;
-    }
-  }
-  return nearest;
-}
-
 function survivors(
   army: ArmyDeployment,
   alive: readonly SimUnit[],
@@ -216,12 +199,11 @@ export function simulateBattle(
   expandArmy(right, units);
   const initialUnits = units.map(snapshot);
   let alive = units;
-  const events: BattleEvent[] = [
-    { type: 'gate-opened', side: 'left', tick: 0 },
-    { type: 'gate-opened', side: 'right', tick: 0 },
-    { type: 'march-started', side: 'left', tick: 0 },
-    { type: 'march-started', side: 'right', tick: 0 },
-  ];
+  const events = new BattleEventLogBuilder();
+  events.push({ type: 'gate-opened', side: 'left', tick: 0 });
+  events.push({ type: 'gate-opened', side: 'right', tick: 0 });
+  events.push({ type: 'march-started', side: 'left', tick: 0 });
+  events.push({ type: 'march-started', side: 'right', tick: 0 });
   const random = seededRandom(seed);
   const { distanceScale, ticksPerSecond, marchSpeedMultiplier } =
     SIMULATION_TUNING;
@@ -229,10 +211,12 @@ export function simulateBattle(
   for (let tick = 1; tick <= maxTicks; tick += 1) {
     const leftAlive = alive.filter((unit) => unit.side === 'left');
     const rightAlive = alive.filter((unit) => unit.side === 'right');
-    const opponents = (unit: SimUnit) =>
-      unit.side === 'left' ? rightAlive : leftAlive;
+    let leftIndex = createTargetIndex(leftAlive);
+    let rightIndex = createTargetIndex(rightAlive);
+    const nearestTarget = (unit: SimUnit) =>
+      (unit.side === 'left' ? rightIndex : leftIndex).nearest(unit.position);
     const positions = alive.map((unit) => {
-      const target = nearestTarget(unit, opponents(unit));
+      const target = nearestTarget(unit);
       unit.targetId = target.id;
       const distance = Math.abs(target.position - unit.position);
       if (!unit.charged && distance <= CHARGE_DISTANCE) {
@@ -262,13 +246,18 @@ export function simulateBattle(
         ),
       );
     });
+    const moved = alive.some(
+      (unit, index) => unit.position !== positions[index],
+    );
     alive.forEach((unit, index) => {
       unit.position = positions[index];
     });
+    leftIndex = createTargetIndex(leftAlive);
+    rightIndex = createTargetIndex(rightAlive);
 
     const damageByTarget = new Map<number, number>();
     for (const unit of alive) {
-      const target = nearestTarget(unit, opponents(unit));
+      const target = nearestTarget(unit);
       unit.targetId = target.id;
       if (
         unit.nextAttackTick > tick ||
@@ -319,6 +308,7 @@ export function simulateBattle(
           position: unit.position,
         });
     }
+    const beforeDeaths = alive.length;
     alive = alive.filter((unit) => unit.hitPoints > 0);
     const hasLeft = alive.some((unit) => unit.side === 'left');
     const hasRight = alive.some((unit) => unit.side === 'right');
@@ -334,8 +324,20 @@ export function simulateBattle(
         durationTicks: tick,
         seed,
         initialUnits,
-        events,
+        events: events.finish(),
       });
+    }
+    // With no movement/deaths and all attackers cooling down, skipped ticks have
+    // no state changes or events. Preserve the logical attack ticks and ceiling.
+    if (
+      !moved &&
+      alive.length === beforeDeaths &&
+      alive.every((unit) => unit.nextAttackTick > tick)
+    ) {
+      let nextAttackTick = maxTicks + 1;
+      for (const unit of alive)
+        nextAttackTick = Math.min(nextAttackTick, unit.nextAttackTick);
+      tick = nextAttackTick - 1;
     }
   }
   throw new BattleSimulationError(

@@ -4,6 +4,7 @@ import { totalLivingUnits } from '../../src/domain/army';
 import type { BattleEvent } from '../../src/domain/battleEvents';
 import { simulateBattle } from '../../src/domain/battleSimulation';
 import { blueArmy, redArmy, singleCohortArmy } from '../fixtures';
+import { materializeBattle } from '../materializeBattle';
 
 const duel = (seed = 12) =>
   simulateBattle(
@@ -13,10 +14,10 @@ const duel = (seed = 12) =>
   );
 
 function eventsOf<T extends BattleEvent['type']>(
-  events: readonly BattleEvent[],
+  events: Iterable<BattleEvent>,
   type: T,
 ) {
-  return events.filter(
+  return [...events].filter(
     (event): event is Extract<BattleEvent, { type: T }> => event.type === type,
   );
 }
@@ -66,9 +67,9 @@ describe('deterministic battle simulation', () => {
   });
 
   it('replays the same complete event log for identical input and seed', () => {
-    expect(simulateBattle(blueArmy(), redArmy(), 41721)).toEqual(
-      simulateBattle(blueArmy(), redArmy(), 41721),
-    );
+    expect(
+      materializeBattle(simulateBattle(blueArmy(), redArmy(), 41721)),
+    ).toEqual(materializeBattle(simulateBattle(blueArmy(), redArmy(), 41721)));
   });
 
   it('uses the seed for stable attacker-ordered random draws', () => {
@@ -101,7 +102,7 @@ describe('deterministic battle simulation', () => {
   it('orders gate, march, charge, attacks, deaths and terminal events by tick and phase', () => {
     const result = duel();
     expect(
-      result.events
+      [...result.events]
         .slice(0, 4)
         .map((event) => [event.type, 'side' in event ? event.side : null]),
     ).toEqual([
@@ -119,8 +120,8 @@ describe('deterministic battle simulation', () => {
       'battle-ended': 5,
     };
     for (let index = 1; index < result.events.length; index += 1) {
-      const previous = result.events[index - 1];
-      const event = result.events[index];
+      const previous = result.events.at(index - 1)!;
+      const event = result.events.at(index)!;
       expect(event.tick).toBeGreaterThanOrEqual(previous.tick);
       if (event.tick === previous.tick)
         expect(rank[event.type]).toBeGreaterThanOrEqual(rank[previous.type]);
@@ -243,7 +244,7 @@ describe('deterministic battle simulation', () => {
     expect(totalLivingUnits(result.leftSurvivors)).toBe(0);
     expect(totalLivingUnits(result.rightSurvivors)).toBe(0);
     expect(
-      result.events
+      [...result.events]
         .filter((event) => event.tick === result.durationTicks)
         .map((event) => event.type),
     ).toEqual(['attack', 'attack', 'death', 'death', 'battle-ended']);
