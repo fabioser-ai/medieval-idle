@@ -16,6 +16,8 @@ export interface DamageModifiers {
   readonly matchupMultiplier: number;
   readonly formationMultiplier: number;
   readonly terrain: 'plains';
+  /** Multiplies the selected terrain's baseline effect. */
+  readonly terrainMultiplier: number;
   /** Deterministic random value supplied by the battle simulation. */
   readonly randomFactor: number;
 }
@@ -94,9 +96,14 @@ export const COMBAT_TUNING = freezeDeep({
     minimum: 0.9,
     maximum: 1.1,
   },
+  modifiers: {
+    neutral: 1,
+  },
   damage: {
     scale: 10,
     minimum: 1,
+    minimumDefense: 1,
+    maximum: Number.MAX_SAFE_INTEGER,
   },
 } as const);
 
@@ -141,24 +148,56 @@ export function formationMultiplier(
   );
 }
 
+function finiteOrNeutral(value: number): number {
+  return Number.isFinite(value) ? value : COMBAT_TUNING.modifiers.neutral;
+}
+
+function clampRandomFactor(value: number): number {
+  if (Number.isNaN(value)) {
+    return COMBAT_TUNING.randomFactor.minimum;
+  }
+
+  return Math.min(
+    COMBAT_TUNING.randomFactor.maximum,
+    Math.max(COMBAT_TUNING.randomFactor.minimum, value),
+  );
+}
+
+function roundBoundedDamage(value: number): number {
+  if (!Number.isFinite(value)) {
+    return value > COMBAT_TUNING.damage.minimum
+      ? COMBAT_TUNING.damage.maximum
+      : COMBAT_TUNING.damage.minimum;
+  }
+
+  return Math.min(
+    COMBAT_TUNING.damage.maximum,
+    Math.max(COMBAT_TUNING.damage.minimum, Math.round(value)),
+  );
+}
+
 export function resolveDamage(
   attacker: UnitStats,
   defender: UnitStats,
   modifiers: DamageModifiers,
 ): number {
-  const randomFactor = Math.min(
-    COMBAT_TUNING.randomFactor.maximum,
-    Math.max(COMBAT_TUNING.randomFactor.minimum, modifiers.randomFactor),
+  const randomFactor = clampRandomFactor(modifiers.randomFactor);
+  const attack =
+    finiteOrNeutral(attacker.attack) *
+    finiteOrNeutral(modifiers.attackMultiplier);
+  const defense = Math.max(
+    COMBAT_TUNING.damage.minimumDefense,
+    finiteOrNeutral(defender.health) *
+      finiteOrNeutral(modifiers.defenseMultiplier),
   );
-  const attack = attacker.attack * modifiers.attackMultiplier;
-  const defense = defender.health * modifiers.defenseMultiplier;
   const modifiersProduct =
-    modifiers.matchupMultiplier *
-    modifiers.formationMultiplier *
+    finiteOrNeutral(modifiers.matchupMultiplier) *
+    finiteOrNeutral(modifiers.formationMultiplier) *
     COMBAT_TUNING.terrainMultiplier[modifiers.terrain] *
+    finiteOrNeutral(modifiers.terrainMultiplier) *
     randomFactor;
   const damage =
     (attack * modifiersProduct * COMBAT_TUNING.damage.scale) / defense;
 
-  return Math.max(COMBAT_TUNING.damage.minimum, Math.round(damage));
+  return roundBoundedDamage(damage);
 }

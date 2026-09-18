@@ -76,3 +76,59 @@ git diff --check                            # no whitespace errors
 The prototype currently has only `plains` terrain, so its terrain multiplier
 is neutral by design. Additional terrain types can be added to
 `COMBAT_TUNING.terrainMultiplier` without changing the damage API.
+
+## Fix round 1 — bounded damage and modifier coverage
+
+### RED evidence
+
+Added boundary tests before changing production code. The required targeted
+run failed in five cases:
+
+```text
+npm test -- tests/unit/combatRules.test.ts
+Test Files  1 failed (1)
+Tests       5 failed | 20 passed (25)
+```
+
+The failures showed that `NaN` propagated through random-factor clamping,
+zero defense inputs produced `Infinity`, and the damage calculation did not
+apply an explicit plains-condition multiplier.
+
+### GREEN evidence
+
+Added the smallest normalization and bounded-rounding helpers:
+
+- `NaN` random factors normalize to the lower `0.90` clamp boundary, while
+  infinite factors clamp to the existing configured endpoints.
+- Non-finite non-random modifiers normalize to the central neutral multiplier.
+- Defense has a configured minimum, and final damage is bounded by configured
+  minimum and maximum safe-integer limits before it is returned.
+- `DamageModifiers.terrainMultiplier` explicitly represents a current
+  plains-condition multiplier, applied on top of the centralized plains base.
+  This makes terrain sensitivity observable without adding another terrain
+  type or altering the public tuning table.
+- Tests now isolate attack, defense, matchup, formation, and terrain effects;
+  cover NaN, zero defense multiplier, and zero defender health; and verify
+  nested tuning nodes are frozen and reject mutation.
+
+The targeted suite then passed:
+
+```text
+npm test -- tests/unit/combatRules.test.ts
+Test Files  1 passed (1)
+Tests       25 passed (25)
+```
+
+### Final fix-round verification
+
+```text
+npm test                                    # 2 files, 33/33 tests passed
+npm run lint                                # exit 0
+npm run format:check                        # all files formatted
+npm run build                               # TypeScript and Vite build passed
+git diff --check                            # no whitespace errors
+```
+
+### Commit
+
+`fix: enforce bounded combat damage`

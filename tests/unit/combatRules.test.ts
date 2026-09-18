@@ -16,6 +16,7 @@ const baselineModifiers: DamageModifiers = {
   matchupMultiplier: 1,
   formationMultiplier: 1,
   terrain: 'plains',
+  terrainMultiplier: 1,
   randomFactor: 1,
 };
 
@@ -90,18 +91,23 @@ describe('combat rules', () => {
     expect(formationMultiplier('middle', 'infantry')).toBe(1);
   });
 
-  it('combines attack, defense, matchup, formation, and plains modifiers', () => {
-    const damage = resolveDamage(attacker, defender, {
-      attackMultiplier: 2,
-      defenseMultiplier: 0.5,
-      matchupMultiplier: 1.5,
-      formationMultiplier: 1.1,
-      terrain: 'plains',
-      randomFactor: 1,
-    });
-
-    expect(damage).toBe(66);
-  });
+  it.each([
+    ['attack', { attackMultiplier: 2 }, 20],
+    ['defense', { defenseMultiplier: 2 }, 5],
+    ['matchup', { matchupMultiplier: 1.5 }, 15],
+    ['formation', { formationMultiplier: 1.1 }, 11],
+    ['plains terrain', { terrainMultiplier: 1.2 }, 12],
+  ] as const)(
+    'applies the %s modifier independently',
+    (_, modifier, expected) => {
+      expect(
+        resolveDamage(attacker, defender, {
+          ...baselineModifiers,
+          ...modifier,
+        }),
+      ).toBe(expected);
+    },
+  );
 
   it('clamps the supplied seeded random factor to the configured range', () => {
     const lowDamage = resolveDamage(attacker, defender, {
@@ -123,7 +129,59 @@ describe('combat rules', () => {
     expect(resolveDamage(noAttack, defender, baselineModifiers)).toBe(1);
   });
 
-  it('exports immutable combat tuning for rule adjustments', () => {
+  it.each([
+    ['a NaN seeded random factor', { randomFactor: Number.NaN }],
+    ['a zero defense multiplier', { defenseMultiplier: 0 }],
+  ] as const)(
+    'returns finite positive integer damage with %s',
+    (_, modifier) => {
+      const damage = resolveDamage(attacker, defender, {
+        ...baselineModifiers,
+        ...modifier,
+      });
+
+      expect(Number.isInteger(damage)).toBe(true);
+      expect(damage).toBeGreaterThanOrEqual(1);
+    },
+  );
+
+  it('returns finite positive integer damage against a zero-health defender', () => {
+    const zeroHealthDefender: UnitStats = { ...defender, health: 0 };
+    const damage = resolveDamage(
+      attacker,
+      zeroHealthDefender,
+      baselineModifiers,
+    );
+
+    expect(Number.isInteger(damage)).toBe(true);
+    expect(damage).toBeGreaterThanOrEqual(1);
+  });
+
+  it('normalizes a NaN seeded random factor to the lower clamp boundary', () => {
+    expect(
+      resolveDamage(attacker, defender, {
+        ...baselineModifiers,
+        randomFactor: Number.NaN,
+      }),
+    ).toBe(9);
+  });
+
+  it('deeply freezes combat tuning so nested adjustments fail', () => {
     expect(Object.isFrozen(COMBAT_TUNING)).toBe(true);
+    expect(Object.isFrozen(COMBAT_TUNING.unitStats)).toBe(true);
+    expect(Object.isFrozen(COMBAT_TUNING.unitStats.infantry)).toBe(true);
+    expect(Object.isFrozen(COMBAT_TUNING.experienceMultiplier)).toBe(true);
+    expect(Object.isFrozen(COMBAT_TUNING.matchupMultiplier)).toBe(true);
+    expect(Object.isFrozen(COMBAT_TUNING.matchupMultiplier.spearman)).toBe(
+      true,
+    );
+    expect(() => {
+      (
+        COMBAT_TUNING.unitStats.infantry as {
+          health: number;
+        }
+      ).health = 0;
+    }).toThrow(TypeError);
+    expect(getStats('infantry', 'recruit').health).toBe(100);
   });
 });
