@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { BattleScene } from './BattleScene';
 
 export const LOGICAL_WIDTH = 480;
 export const LOGICAL_HEIGHT = 270;
@@ -11,6 +12,8 @@ export function createGame(parent: HTMLElement): Phaser.Game {
     parent,
     pixelArt: true,
     antialias: false,
+    roundPixels: true,
+    scene: [BattleScene],
     transparent: false,
     scale: {
       mode: Phaser.Scale.FIT,
