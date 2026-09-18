@@ -8,6 +8,8 @@ export interface UnitCohort {
   readonly type: UnitType;
   readonly tier: ExperienceTier;
   readonly count: number;
+  /** Lifetime victories survived; omitted legacy/trained cohorts start at zero. */
+  readonly survivedVictories?: number;
 }
 
 export interface FormationGroup {
@@ -120,7 +122,16 @@ export function validateDeployment(deployment: ArmyDeployment): string[] {
         type?: unknown;
         tier?: unknown;
         count?: unknown;
+        survivedVictories?: unknown;
       };
+      if (
+        cohortValue.survivedVictories !== undefined &&
+        (typeof cohortValue.survivedVictories !== 'number' ||
+          !Number.isSafeInteger(cohortValue.survivedVictories) ||
+          cohortValue.survivedVictories < 0)
+      ) {
+        errors.push('Survived victories must be a nonnegative safe integer.');
+      }
       if (!isUnitType(cohortValue.type)) {
         errors.push('Unit type is invalid.');
       }
@@ -200,6 +211,9 @@ export function cloneDeployment(deployment: ArmyDeployment): ArmyDeployment {
         type: cohort.type,
         tier: cohort.tier,
         count: cohort.count,
+        ...(cohort.survivedVictories === undefined
+          ? {}
+          : { survivedVictories: cohort.survivedVictories }),
       })),
     })),
   };

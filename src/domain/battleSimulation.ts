@@ -98,7 +98,7 @@ function expandArmy(army: ArmyDeployment, units: SimUnit[]): void {
           position: army.side === 'left' ? -1 : 1,
           targetId: null,
           nextAttackTick: 0,
-          survivedVictories: 0,
+          survivedVictories: cohort.survivedVictories ?? 0,
           stats,
           groupIndex,
           cohortIndex,
@@ -141,6 +141,9 @@ function survivors(
         type: cohort.type,
         tier: cohort.tier,
         count: counts[groupIndex][cohortIndex],
+        ...(cohort.survivedVictories === undefined
+          ? {}
+          : { survivedVictories: cohort.survivedVictories }),
       })),
     })),
   };
