@@ -145,7 +145,10 @@ export class BattleScene extends Phaser.Scene {
       sprite.setTexture(
         textureKey(unit.unit.type, unit.unit.side, action, frame),
       );
-      sprite.setPosition(point.x, point.y).setDepth(point.y + 100).setScale(0.72);
+      sprite
+        .setPosition(point.x, point.y)
+        .setDepth(point.y + 100)
+        .setScale(0.72);
       // Keep even the horse silhouette inside the closed gate aperture. Release
       // the edge crop gradually as its anchor leaves the gate, and fold it on return.
       const gateX = unit.unit.side === 'left' ? 59 : 419;
@@ -205,7 +208,10 @@ export class BattleScene extends Phaser.Scene {
       const p = displayedUnitPoint(unit);
       const color = unit.unit.side === 'left' ? 0x7fb5d1 : 0xd98a72;
       const dark = unit.unit.side === 'left' ? 0x416f8a : 0x8d4e42;
-      const count = Math.min(18, Math.max(2, Math.ceil(Math.sqrt(unit.aliveCount) * 2.2)));
+      const count = Math.min(
+        18,
+        Math.max(2, Math.ceil(Math.sqrt(unit.aliveCount) * 2.2)),
+      );
       const side = unit.unit.side === 'left' ? 1 : -1;
       const charge = phase === 'charging' ? 1.7 : 1;
       for (let i = 0; i < count; i++) {

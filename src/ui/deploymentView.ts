@@ -78,7 +78,6 @@ export function mountDeployment(
     inventory.append(row);
     return row;
   });
-  advancedBody.append(element('h3', 'Remaining troops'), inventory);
   const formations = element('div', '', 'formations');
   const quick = element('section', '', 'quick-deployment');
   quick.setAttribute('aria-label', 'Quick battle plan');
@@ -96,6 +95,7 @@ export function mountDeployment(
   advanced.className = 'advanced-deployment';
   advanced.append(element('summary', 'Advanced deployment'));
   const advancedBody = element('div', '', 'advanced-deployment-body');
+  advancedBody.append(element('h3', 'Remaining troops'), inventory);
   advanced.append(advancedBody);
   const status = element('p', '', 'status');
   status.id = 'deployment-status';
@@ -326,7 +326,7 @@ export function mountDeployment(
       field.type.value = unitType;
       field.quantity.value = String(count);
       const available = EXPERIENCE_TIERS.map((tier) =>
-        campaign.inventory.get(unitType, tier),
+        campaign.inventory[unitType]?.[tier] ?? 0,
       );
       const use = available.map(() => 0);
       let remaining = count;
@@ -356,10 +356,7 @@ export function mountDeployment(
     const button = element('button', '', 'quick-plan');
     button.type = 'button';
     button.setAttribute('aria-pressed', String(index === 0));
-    button.append(
-      element('strong', plan.name),
-      element('span', plan.note),
-    );
+    button.append(element('strong', plan.name), element('span', plan.note));
     listen(button, 'click', () => {
       applyPlan(plan);
       [...quickPlans.querySelectorAll('button')].forEach((other) =>

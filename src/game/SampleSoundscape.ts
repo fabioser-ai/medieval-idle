@@ -1,7 +1,15 @@
 import type { BattlePhase } from '../application/battleSession';
 import type { AudioFrame } from './BattleAudio';
 
-type SoundRole = 'march' | 'drums' | 'cavalry' | 'horn' | 'arrows' | 'impact' | 'melee' | 'result';
+type SoundRole =
+  | 'march'
+  | 'drums'
+  | 'cavalry'
+  | 'horn'
+  | 'arrows'
+  | 'impact'
+  | 'melee'
+  | 'result';
 
 const FILES: Record<SoundRole, readonly string[]> = {
   march: ['/audio/v2/march-1.ogg', '/audio/v2/march-2.ogg'],
@@ -37,7 +45,9 @@ export class SampleSoundscape {
 
   setPaused(paused: boolean): void {
     if (!this.context) return;
-    void (paused ? this.context.suspend() : this.context.resume()).catch(() => {});
+    void (paused ? this.context.suspend() : this.context.resume()).catch(
+      () => {},
+    );
   }
 
   update(frame: AudioFrame): void {
@@ -59,7 +69,13 @@ export class SampleSoundscape {
           (frame.phase === 'charging' ? 1.35 : 1)
         : 0;
     this.setCavalry(cavalryGain, frame.phase === 'charging' ? 1.18 : 0.94);
-    const drumGain = moving ? (frame.phase === 'charging' ? 0.28 : 0.13) : frame.phase === 'fighting' ? 0.08 : 0;
+    const drumGain = moving
+      ? frame.phase === 'charging'
+        ? 0.28
+        : 0.13
+      : frame.phase === 'fighting'
+        ? 0.08
+        : 0;
     this.setLoop('drums', drumGain, frame.phase === 'charging' ? 1.12 : 0.96);
 
     if (frame.arrows > this.lastArrowCount)
@@ -87,16 +103,20 @@ export class SampleSoundscape {
     const context = this.context;
     if (!context) return;
     await Promise.all(
-      Object.values(FILES).flat().map(async (path) => {
-        try {
-          const response = await fetch(base(path));
-          if (!response.ok) return;
-          const buffer = await context.decodeAudioData(await response.arrayBuffer());
-          this.buffers.set(path, buffer);
-        } catch {
-          // Missing/unsupported samples are intentionally silent; synth fallback remains.
-        }
-      }),
+      Object.values(FILES)
+        .flat()
+        .map(async (path) => {
+          try {
+            const response = await fetch(base(path));
+            if (!response.ok) return;
+            const buffer = await context.decodeAudioData(
+              await response.arrayBuffer(),
+            );
+            this.buffers.set(path, buffer);
+          } catch {
+            // Missing/unsupported samples are intentionally silent; synth fallback remains.
+          }
+        }),
     );
   }
 
@@ -110,7 +130,12 @@ export class SampleSoundscape {
     }
   }
 
-  private oneShot(role: SoundRole, gainValue: number, lowRate: number, highRate: number): void {
+  private oneShot(
+    role: SoundRole,
+    gainValue: number,
+    lowRate: number,
+    highRate: number,
+  ): void {
     const context = this.context;
     if (!context) return;
     const candidates = FILES[role].filter((path) => this.buffers.has(path));

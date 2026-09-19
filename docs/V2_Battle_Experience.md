@@ -47,18 +47,21 @@ The purpose is scale, motion and readability—not individual character art.
 Audio should become part of the battle rhythm.
 
 Before contact:
+
 - distant drums;
 - synchronized marching/footfalls;
 - occasional horn/cornet calls;
 - horse hoof rhythm when cavalry is active.
 
 During charge/contact:
+
 - faster hoof cadence;
 - charge horn;
 - arrow volleys;
 - stronger impact/combat texture.
 
 After battle:
+
 - combat falls away;
 - short victory/defeat signal;
 - return march ambience.

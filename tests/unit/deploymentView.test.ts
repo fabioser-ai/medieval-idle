@@ -27,7 +27,7 @@ it('selects a developer preset explicitly, labels the fixed opponent, and prefil
     host.all().find((n) => n.attributes['aria-label'] === 'Rear quantity')!
       .value,
   ).toBe('5');
-  expect(host.all().find((n) => n.textContent === 'To Battle')!.disabled).toBe(
+  expect(host.all().find((n) => n.textContent === 'March to Battle')!.disabled).toBe(
     false,
   );
   expect(
@@ -103,7 +103,7 @@ it('blocks UI-thread deployments beyond 240 even when a loaded campaign contains
     field.value = value;
     field.fire(field.tag === 'select' ? 'change' : 'input');
   }
-  expect(host.all().find((n) => n.textContent === 'To Battle')!.disabled).toBe(
+  expect(host.all().find((n) => n.textContent === 'March to Battle')!.disabled).toBe(
     true,
   );
   expect(
@@ -129,7 +129,7 @@ it('renders all five labeled groups, exact inventory, one status, and blocks inv
   ).toBe(true);
   const status = all.filter((n) => n.attributes.role === 'status');
   expect(status).toHaveLength(1);
-  const start = all.find((n) => n.textContent === 'To Battle')!;
+  const start = all.find((n) => n.textContent === 'March to Battle')!;
   expect(start.disabled).toBe(true);
   const quantity = all.find(
     (n) => n.attributes['aria-label'] === 'Front quantity',
@@ -171,7 +171,7 @@ it('starts the selected formations, disables/hides every strategy input, focuses
     input.value = value;
     input.fire(input.tag === 'select' ? 'change' : 'input');
   }
-  all.find((n) => n.textContent === 'To Battle')!.fire('click');
+  all.find((n) => n.textContent === 'March to Battle')!.fire('click');
   expect(playback.counts.left).toBe(7);
   expect(speed).toBe(4);
   expect(
@@ -268,8 +268,8 @@ it('offers recovery only for a depleted campaign, requires confirmation, and rem
     .find((n) => n.attributes['aria-label'] === 'Front quantity')!;
   quantity.value = '4';
   quantity.fire('input');
-  expect(button('To Battle')!.disabled).toBe(false);
-  button('To Battle')!.fire('click');
+  expect(button('March to Battle')!.disabled).toBe(false);
+  button('March to Battle')!.fire('click');
   expect(playback.counts.left).toBe(4);
 });
 

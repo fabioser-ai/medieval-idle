@@ -96,7 +96,9 @@ export class BattlePlayback {
       } else if (this.phase !== 'gates' && this.phase !== 'result') {
         const stats = COMBAT_TUNING.unitStats[unit.unit.type];
         const step =
-          (delta / 1000) * stats.moveSpeed * 0.05 *
+          (delta / 1000) *
+          stats.moveSpeed *
+          0.05 *
           (unit.charged ? (unit.unit.type === 'cavalry' ? 1.45 : 1.18) : 0.42);
         const distance = unit.destination - unit.position;
         unit.position +=
@@ -106,7 +108,9 @@ export class BattlePlayback {
     for (const arrow of this.arrows)
       if (this.time - arrow.born > 500) arrow.active = false;
     if (this.time >= this.cinematicLeadIn && this.endAt === null)
-      this.cursor.drain((this.time - this.cinematicLeadIn) / 50, (event) => this.consume(event));
+      this.cursor.drain((this.time - this.cinematicLeadIn) / 50, (event) =>
+        this.consume(event),
+      );
     if (this.endAt !== null) this.cursor.clear();
     if (
       this.endAt !== null &&
