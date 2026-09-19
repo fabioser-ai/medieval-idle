@@ -1,10 +1,11 @@
 import type { BattlePhase } from '../application/battleSession';
 import type { AudioFrame } from './BattleAudio';
 
-type SoundRole = 'march' | 'cavalry' | 'horn' | 'arrows' | 'impact' | 'melee' | 'result';
+type SoundRole = 'march' | 'drums' | 'cavalry' | 'horn' | 'arrows' | 'impact' | 'melee' | 'result';
 
 const FILES: Record<SoundRole, readonly string[]> = {
   march: ['/audio/v2/march-1.ogg', '/audio/v2/march-2.ogg'],
+  drums: ['/audio/v2/drums-loop.ogg'],
   cavalry: ['/audio/v2/cavalry-loop.ogg'],
   horn: ['/audio/v2/horn-charge.ogg'],
   arrows: ['/audio/v2/arrows-1.ogg', '/audio/v2/arrows-2.ogg'],
@@ -24,6 +25,7 @@ export class SampleSoundscape {
   private lastArrowCount = 0;
   private lastAttackCount = 0;
   private cavalry?: { source: AudioBufferSourceNode; gain: GainNode };
+  private drums?: { source: AudioBufferSourceNode; gain: GainNode };
   private loading?: Promise<void>;
 
   startFromGesture(): void {
@@ -57,6 +59,8 @@ export class SampleSoundscape {
           (frame.phase === 'charging' ? 1.35 : 1)
         : 0;
     this.setCavalry(cavalryGain, frame.phase === 'charging' ? 1.18 : 0.94);
+    const drumGain = moving ? (frame.phase === 'charging' ? 0.28 : 0.13) : frame.phase === 'fighting' ? 0.08 : 0;
+    this.setLoop('drums', drumGain, frame.phase === 'charging' ? 1.12 : 0.96);
 
     if (frame.arrows > this.lastArrowCount)
       this.oneShot('arrows', 0.24, 0.94, 1.06);
@@ -72,6 +76,7 @@ export class SampleSoundscape {
 
   stop(): void {
     this.cavalry?.source.stop();
+    this.drums?.source.stop();
     this.cavalry = undefined;
     if (this.context) void this.context.close().catch(() => {});
     this.context = undefined;
@@ -100,6 +105,7 @@ export class SampleSoundscape {
     if (frame.phase === 'fighting') this.oneShot('impact', 0.5, 0.92, 1.04);
     if (frame.phase === 'result') {
       this.setCavalry(0, 1);
+      this.setLoop('drums', 0, 1);
       this.oneShot('result', 0.36, 1, 1);
     }
   }
@@ -122,6 +128,28 @@ export class SampleSoundscape {
       source.disconnect();
       gain.disconnect();
     });
+  }
+
+  private setLoop(role: 'drums', volume: number, rate: number): void {
+    const context = this.context;
+    if (!context) return;
+    if (!this.drums && volume > 0) {
+      const buffer = this.buffers.get(FILES[role][0]);
+      if (!buffer) return;
+      const source = context.createBufferSource();
+      const gain = context.createGain();
+      source.buffer = buffer;
+      source.loop = true;
+      gain.gain.value = 0;
+      source.connect(gain);
+      gain.connect(context.destination);
+      source.start();
+      this.drums = { source, gain };
+    }
+    if (!this.drums) return;
+    const now = context.currentTime;
+    this.drums.source.playbackRate.setTargetAtTime(rate, now, 0.2);
+    this.drums.gain.gain.setTargetAtTime(volume, now, 0.3);
   }
 
   private setCavalry(volume: number, rate: number): void {
