@@ -113,11 +113,15 @@ it('blocks UI-thread deployments beyond 240 even when a loaded campaign contains
 
 it('renders all five labeled groups, exact inventory, one status, and blocks invalid edits', () => {
   const host = new ElementBoundary('div');
-  mountDeployment(host as unknown as HTMLElement, {
-    play() {},
-    setPlaybackSpeed() {},
-    setBattleFinishedHandler() {},
-  });
+  mountDeployment(
+    host as unknown as HTMLElement,
+    {
+      play() {},
+      setPlaybackSpeed() {},
+      setBattleFinishedHandler() {},
+    },
+    { prefill: false },
+  );
   const all = host.all();
   expect(all.filter((n) => n.tag === 'fieldset')).toHaveLength(5);
   expect(all.filter((n) => n.tag === 'select')).toHaveLength(5);
@@ -153,13 +157,17 @@ it('starts the selected formations, disables/hides every strategy input, focuses
   const host = new ElementBoundary('div');
   const playback = new BattlePlayback();
   let speed: PlaybackSpeed = 0;
-  mountDeployment(host as unknown as HTMLElement, {
-    play: (result) => playback.load(result),
-    setPlaybackSpeed: (value) => {
-      speed = value;
+  mountDeployment(
+    host as unknown as HTMLElement,
+    {
+      play: (result) => playback.load(result),
+      setPlaybackSpeed: (value) => {
+        speed = value;
+      },
+      setBattleFinishedHandler() {},
     },
-    setBattleFinishedHandler() {},
-  });
+    { prefill: false },
+  );
   const all = host.all();
   for (const [label, value] of [
     ['Front quantity', '4'],
@@ -173,7 +181,7 @@ it('starts the selected formations, disables/hides every strategy input, focuses
   }
   all.find((n) => n.textContent === 'March to Battle')!.fire('click');
   expect(playback.counts.left).toBe(7);
-  expect(speed).toBe(4);
+  expect(speed).toBe(1);
   expect(
     all.find((n) => n.attributes['aria-label'] === 'Deploy your army')!.hidden,
   ).toBe(true);
@@ -197,13 +205,13 @@ it('starts the selected formations, disables/hides every strategy input, focuses
   expect(buttons[0].focused).toBe(true);
   expect(buttons.map((n) => n.attributes['aria-pressed'])).toEqual([
     'false',
-    'false',
-    'false',
     'true',
+    'false',
+    'false',
   ]);
   expect(
     all.find((n) => n.attributes.role === 'status')!.textContent,
-  ).toContain('Viewing at 4×');
+  ).toContain('Viewing at 1×');
   buttons[0].fire('click');
   expect(speed).toBe(0);
   expect(all.find((n) => n.attributes.role === 'status')!.textContent).toMatch(
