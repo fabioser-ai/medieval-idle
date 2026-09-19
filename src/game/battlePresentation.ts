@@ -88,8 +88,8 @@ export function battlefieldPoint(
 ): { x: number; y: number } {
   const p = Math.max(-1, Math.min(1, position));
   return {
-    x: Math.round(240 + p * 180),
-    y: Math.round(153 + 56 * (1 - Math.abs(p)) + lanes[slot] + (index % 5) * 3),
+    x: Math.round(240 + p * 205),
+    y: Math.round(148 + 66 * (1 - Math.abs(p)) + lanes[slot] + (index % 5) * 3),
   };
 }
 
@@ -102,7 +102,7 @@ export function displayedUnitPoint(view: VisualCohort & { position: number }): {
   const side = view.unit.side === 'left' ? 1 : -1;
   const emergence = Math.max(0, Math.min(1, (view.position * side + 1) / 0.25));
   const point = battlefieldPoint(view.position, view.unit.slot, view.id);
-  const spread = (Math.floor(view.id / 5) % 7) * 3;
+  const spread = (Math.floor(view.id / 5) % 7) * 4;
   return {
     x: Math.round(point.x - 1 - spread * side * emergence),
     y: Math.round(147 + (point.y - 147) * emergence),
