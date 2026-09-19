@@ -325,8 +325,8 @@ export function mountDeployment(
       if (!field) continue;
       field.type.value = unitType;
       field.quantity.value = String(count);
-      const available = EXPERIENCE_TIERS.map((tier) =>
-        campaign.inventory[unitType]?.[tier] ?? 0,
+      const available = EXPERIENCE_TIERS.map(
+        (tier) => campaign.inventory[unitType]?.[tier] ?? 0,
       );
       const use = available.map(() => 0);
       let remaining = count;

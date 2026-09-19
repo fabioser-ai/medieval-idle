@@ -27,9 +27,9 @@ it('selects a developer preset explicitly, labels the fixed opponent, and prefil
     host.all().find((n) => n.attributes['aria-label'] === 'Rear quantity')!
       .value,
   ).toBe('5');
-  expect(host.all().find((n) => n.textContent === 'March to Battle')!.disabled).toBe(
-    false,
-  );
+  expect(
+    host.all().find((n) => n.textContent === 'March to Battle')!.disabled,
+  ).toBe(false);
   expect(
     host
       .all()
@@ -103,9 +103,9 @@ it('blocks UI-thread deployments beyond 240 even when a loaded campaign contains
     field.value = value;
     field.fire(field.tag === 'select' ? 'change' : 'input');
   }
-  expect(host.all().find((n) => n.textContent === 'March to Battle')!.disabled).toBe(
-    true,
-  );
+  expect(
+    host.all().find((n) => n.textContent === 'March to Battle')!.disabled,
+  ).toBe(true);
   expect(
     host.all().find((n) => n.id === 'deployment-status')!.textContent,
   ).toMatch(/240/);
