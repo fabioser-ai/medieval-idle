@@ -325,8 +325,29 @@ export function mountDeployment(
       if (!field) continue;
       field.type.value = unitType;
       field.quantity.value = String(count);
+      const available = EXPERIENCE_TIERS.map((tier) =>
+        campaign.inventory.get(unitType, tier),
+      );
+      const use = available.map(() => 0);
+      let remaining = count;
+      for (let i = 0; i < available.length && remaining > 0; i++) {
+        use[i] = Math.min(available[i], remaining);
+        remaining -= use[i];
+      }
+      const total = use.reduce((sum, n) => sum + n, 0);
+      field.quantity.value = String(total);
+      let assignedPercent = 0;
       field.ratios.forEach((input, index) => {
-        input.value = index === 0 ? '100' : '0';
+        const percent =
+          index === field.ratios.length - 1
+            ? 100 - assignedPercent
+            : total > 0
+              ? Math.floor((use[index] * 100) / total)
+              : index === 0
+                ? 100
+                : 0;
+        input.value = String(percent);
+        assignedPercent += percent;
       });
       field.update();
     }
