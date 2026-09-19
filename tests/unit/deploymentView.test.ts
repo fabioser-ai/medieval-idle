@@ -3,6 +3,86 @@ import { ElementBoundary } from '../domBoundary';
 import { mountDeployment } from '../../src/ui/deploymentView';
 import { BattlePlayback } from '../../src/game/BattlePlayback';
 import type { PlaybackSpeed } from '../../src/application/battleSession';
+import { Campaign } from '../../src/application/campaign';
+import { SaveStore } from '../../src/application/saveStore';
+import { formationDuel } from '../../src/game/acceptanceScenarios';
+
+it('selects a developer preset explicitly, labels the fixed opponent, and prefills valid deployment', () => {
+  const host = new ElementBoundary('div');
+  const campaign = new Campaign(
+    new SaveStore({ getItem: () => null, setItem() {} }),
+  );
+  mountDeployment(
+    host as unknown as HTMLElement,
+    { play() {}, setPlaybackSpeed() {}, setBattleFinishedHandler() {} },
+    { campaign, developer: true },
+  );
+  const select = host
+    .all()
+    .find((n) => n.attributes['aria-label'] === 'Acceptance preset')!;
+  select.value = 'archer-rear';
+  select.fire('change');
+  expect(campaign.inventory.archer?.trained).toBe(5);
+  expect(
+    host.all().find((n) => n.attributes['aria-label'] === 'Rear quantity')!
+      .value,
+  ).toBe('5');
+  expect(host.all().find((n) => n.textContent === 'To Battle')!.disabled).toBe(
+    false,
+  );
+  expect(
+    host
+      .all()
+      .some((n) =>
+        n.textContent.includes(
+          'You command Alderwatch (blue, left). Fixed opponent: Emberfall (red, right)',
+        ),
+      ),
+  ).toBe(true);
+  expect(Object.keys(select.listeners)).toHaveLength(0);
+  expect(
+    host.all().find((n) => n.attributes['aria-label'] === 'Acceptance preset')!
+      .value,
+  ).toBe('');
+});
+
+it('blocks UI-thread deployments beyond 240 even when a loaded campaign contains more troops', () => {
+  const host = new ElementBoundary('div'),
+    campaign = new Campaign(
+      new SaveStore({ getItem: () => null, setItem() {} }),
+    );
+  const preset = formationDuel('rear');
+  campaign.reset({
+    ...preset.left,
+    groups: [
+      {
+        slot: 'rear',
+        cohorts: [{ type: 'archer', tier: 'trained', count: 2000 }],
+      },
+    ],
+  });
+  mountDeployment(
+    host as unknown as HTMLElement,
+    { play() {}, setPlaybackSpeed() {}, setBattleFinishedHandler() {} },
+    { campaign },
+  );
+  for (const [label, value] of [
+    ['Rear unit type', 'archer'],
+    ['Rear recruit %', '0'],
+    ['Rear trained %', '100'],
+    ['Rear quantity', '2000'],
+  ]) {
+    const field = host.all().find((n) => n.attributes['aria-label'] === label)!;
+    field.value = value;
+    field.fire(field.tag === 'select' ? 'change' : 'input');
+  }
+  expect(host.all().find((n) => n.textContent === 'To Battle')!.disabled).toBe(
+    true,
+  );
+  expect(
+    host.all().find((n) => n.id === 'deployment-status')!.textContent,
+  ).toMatch(/240/);
+});
 
 it('renders all five labeled groups, exact inventory, one status, and blocks invalid edits', () => {
   const host = new ElementBoundary('div');

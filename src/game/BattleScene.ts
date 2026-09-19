@@ -9,6 +9,7 @@ import {
 } from './battlePresentation';
 import { createUnitTextures, textureKey } from './PixelUnitFactory';
 import { UnitViewPool } from './UnitViewPool';
+import { BattleAudio } from './BattleAudio';
 
 /** Thin Phaser adapter; all event/state/allocation behavior lives outside Phaser. */
 export class BattleScene extends Phaser.Scene {
@@ -25,8 +26,12 @@ export class BattleScene extends Phaser.Scene {
   private progress!: Phaser.GameObjects.Rectangle;
   private duration = 1;
   private battleFinishedHandler: (() => void) | undefined;
+  private battleResultHandler: (() => void) | undefined;
 
-  constructor(private readonly onReady?: (scene: BattleScene) => void) {
+  constructor(
+    private readonly onReady?: (scene: BattleScene) => void,
+    private readonly audio = new BattleAudio(),
+  ) {
     super('BattleScene');
   }
 
@@ -52,6 +57,8 @@ export class BattleScene extends Phaser.Scene {
       this.pool.releaseAll();
       this.sprites.clear();
       this.battleFinishedHandler = undefined;
+      this.battleResultHandler = undefined;
+      this.audio.stop();
     });
     this.onReady?.(this);
   }
@@ -75,6 +82,14 @@ export class BattleScene extends Phaser.Scene {
     if (![0, 1, 2, 4].includes(speed))
       throw new RangeError('Invalid playback speed.');
     this.playbackSpeed = speed;
+    this.audio.setPaused(speed === 0);
+  }
+
+  startAudioFromGesture(): void {
+    this.audio.startFromGesture();
+  }
+  setBattleResultHandler(handler: () => void): void {
+    this.battleResultHandler = handler;
   }
 
   /** Replaces the single preparation-owner callback; does not add listeners. */
@@ -87,6 +102,21 @@ export class BattleScene extends Phaser.Scene {
     const previousPhase = this.playback.phase;
     this.playback.advance(Math.min(delta, 100), this.playbackSpeed);
     const { phase, time } = this.playback;
+    this.audio.update({
+      phase,
+      time,
+      ...this.playback.counts,
+      cavalry: this.playback.units
+        .filter((u) => !u.dying && u.unit.type === 'cavalry')
+        .reduce((n, u) => n + u.aliveCount, 0),
+      arrows: this.playback.arrows.filter((a) => a.active).length,
+      attacks: this.playback.units.filter(
+        (u) => !u.dying && u.attackUntil > time,
+      ).length,
+      winner: this.playback.winner,
+    });
+    if (previousPhase !== 'result' && phase === 'result')
+      this.battleResultHandler?.();
     this.game.canvas.dataset.phase = phase;
     this.game.canvas.dataset.playbackTime = String(time);
     for (const unit of this.playback.units) {
@@ -148,8 +178,10 @@ export class BattleScene extends Phaser.Scene {
         : `VIEW ONLY · ${this.playbackSpeed === 0 ? 'PAUSED' : `${this.playbackSpeed}×`}`,
     );
     this.progress.setScale(Math.min(1, time / this.duration), 1);
-    if (previousPhase === 'returning' && phase === 'preparing')
+    if (previousPhase === 'returning' && phase === 'preparing') {
+      this.audio.stop();
       this.battleFinishedHandler?.();
+    }
   }
 
   private drawArrows(): void {

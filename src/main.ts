@@ -14,4 +14,8 @@ gameHost.setAttribute(
 );
 const uiHost = document.querySelector<HTMLElement>('#battle-ui');
 if (!uiHost) throw new Error('Missing deployment host.');
-createGame(gameHost, (scene) => mountDeployment(uiHost, scene));
+createGame(gameHost, (scene) =>
+  mountDeployment(uiHost, scene, {
+    developer: new URLSearchParams(location.search).get('dev') === '1',
+  }),
+);

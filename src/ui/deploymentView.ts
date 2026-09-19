@@ -5,24 +5,32 @@ import {
   type UnitType,
 } from '../domain/army';
 import { BattleController, type BattleRenderer } from './controls';
-import { DeploymentEditor, slotLabel, type Inventory } from './deployment';
-
-/** Deliberately bounded at 120 troops: maximum-size synchronous simulation is not UI-safe. */
-const prototypeInventory: Inventory = Object.fromEntries(
-  UNIT_TYPES.map((type) => [
-    type,
-    { recruit: 12, trained: 10, veteran: 6, elite: 2 },
-  ]),
-);
+import { DeploymentEditor, slotLabel } from './deployment';
+import { Campaign } from '../application/campaign';
+import {
+  developerScenarios,
+  type AcceptanceScenario,
+} from '../game/acceptanceScenarios';
+import { demoArmies } from '../game/demoBattle';
 
 interface DeploymentRenderer extends BattleRenderer {
   setBattleFinishedHandler(handler: () => void): void;
+  setBattleResultHandler?(handler: () => void): void;
+}
+interface DeploymentOptions {
+  campaign?: Campaign;
+  preset?: AcceptanceScenario;
+  developer?: boolean;
+  prefill?: boolean;
 }
 
 export function mountDeployment(
   host: HTMLElement,
   renderer: DeploymentRenderer,
+  options: DeploymentOptions = {},
 ): void {
+  const campaign = options.campaign ?? new Campaign();
+  const preset = options.preset;
   const doc = host.ownerDocument;
   const element = <K extends keyof HTMLElementTagNameMap>(
     tag: K,
@@ -34,8 +42,12 @@ export function mountDeployment(
     node.className = className;
     return node;
   };
-  const editor = new DeploymentEditor(prototypeInventory);
-  const controller = new BattleController(editor, renderer);
+  const editor = new DeploymentEditor(campaign.inventory, 240);
+  const controller = new BattleController(editor, renderer, {
+    campaign,
+    enemy: preset?.right,
+    seed: preset?.seed,
+  });
   const preparation = element('section', '', 'deployment');
   preparation.setAttribute('aria-label', 'Deploy your army');
   preparation.append(
@@ -43,6 +55,14 @@ export function mountDeployment(
     element(
       'p',
       'Choose a formation, quantity and experience mix. Percentages total 100%; zero quantity leaves a position empty.',
+      'intro',
+    ),
+  );
+  const enemy = preset?.right ?? demoArmies()[1];
+  preparation.append(
+    element(
+      'p',
+      `You command Alderwatch (blue, left). Fixed opponent: Emberfall (red, right) — ${enemy.groups.flatMap((g) => g.cohorts.map((c) => `${c.count} ${c.tier} ${c.type} (${slotLabel(g.slot)})`)).join('; ')}. Seed ${preset?.seed ?? 626}.`,
       'intro',
     ),
   );
@@ -69,6 +89,47 @@ export function mountDeployment(
     target.addEventListener(event, handler);
     detachListeners.push(() => target.removeEventListener(event, handler));
   };
+  const remount = (next: DeploymentOptions) => {
+    for (const detach of detachListeners) detach();
+    mountDeployment(host, renderer, { ...options, ...next, campaign });
+  };
+  if (options.developer) {
+    const details = element('details');
+    details.append(element('summary', 'Developer acceptance presets'));
+    const select = element('select');
+    select.setAttribute('aria-label', 'Acceptance preset');
+    const blank = element(
+      'option',
+      'Choose a preset (replaces campaign roster)',
+    );
+    blank.value = '';
+    select.append(blank);
+    for (const scenario of developerScenarios) {
+      const option = element('option', scenario.label);
+      option.value = scenario.id;
+      select.append(option);
+    }
+    // This is a reset action, not persistent selection: the same scenario can
+    // be selected again after its roster has been depleted.
+    select.value = '';
+    listen(select, 'change', () => {
+      const selected = developerScenarios.find((s) => s.id === select.value);
+      if (!selected) return;
+      campaign.reset(selected.left);
+      remount({ preset: selected, prefill: true });
+    });
+    fields.push(select);
+    details.append(select);
+    preparation.append(details);
+  }
+  const lastResult = element('p', '', 'intro');
+  lastResult.id = 'last-result';
+  const updateResult = () => {
+    const r = campaign.data.lastResult;
+    lastResult.textContent = r
+      ? `Last result: ${r.outcome} · ${r.winner ?? 'neither'} wins · survivors left ${r.leftSurvivors} · right ${r.rightSurvivors} · seed ${campaign.data.lastSeed}. ${campaign.notice}`
+      : `No completed battle. ${campaign.notice}`;
+  };
   const refresh = () => {
     start.disabled = !editor.canStartBattle;
     status.textContent =
@@ -80,6 +141,10 @@ export function mountDeployment(
     });
   };
   for (const slot of FORMATION_SLOTS) {
+    const initial =
+      options.prefill !== false
+        ? preset?.left.groups.find((g) => g.slot === slot)?.cohorts[0]
+        : undefined;
     const title = slotLabel(slot);
     const group = element('fieldset', '', `formation formation-${slot}`);
     group.append(element('legend', title));
@@ -93,7 +158,7 @@ export function mountDeployment(
       option.value = unitType;
       type.append(option);
     }
-    type.value = 'infantry';
+    type.value = initial?.type ?? 'infantry';
     const typeLabel = element('label', 'Unit type');
     typeLabel.append(type);
     group.append(typeLabel);
@@ -112,11 +177,15 @@ export function mountDeployment(
       fields.push(input);
       return { input, wrapper };
     };
-    const quantity = numeric('quantity', 0);
+    const quantity = numeric('quantity', initial?.count ?? 0);
     group.append(quantity.wrapper);
     const mix = element('div', '', 'experience-mix');
     const ratios = EXPERIENCE_TIERS.map((tier, index) => {
-      const item = numeric(`${tier} %`, index === 0 ? 100 : 0, 100);
+      const item = numeric(
+        `${tier} %`,
+        initial ? (tier === initial.tier ? 100 : 0) : index === 0 ? 100 : 0,
+        100,
+      );
       mix.append(item.wrapper);
       return item.input;
     });
@@ -133,6 +202,7 @@ export function mountDeployment(
     listen(type, 'change', update);
     for (const input of [quantity.input, ...ratios])
       listen(input, 'input', update);
+    if (initial) update();
     formations.append(group);
   }
   preparation.append(
@@ -182,14 +252,17 @@ export function mountDeployment(
     buttons[0].focus();
   });
   host.className = 'battle-ui';
-  host.replaceChildren(preparation, status, viewing);
+  host.replaceChildren(preparation, status, viewing, lastResult);
   refresh();
+  updateResult();
+  renderer.setBattleResultHandler?.(() => {
+    campaign.finish();
+    updateResult();
+  });
   // One replaceable scene callback, never one listener per frame or per phase.
   renderer.setBattleFinishedHandler(() => {
-    for (const detach of detachListeners) detach();
-    // Repeated prototype battles replenish the configured inventory. Campaign
-    // survivor/progression carryover belongs to the Task 8 integration.
-    mountDeployment(host, renderer);
+    campaign.finish();
+    remount({ prefill: false });
     host.querySelector<HTMLSelectElement>('select')?.focus();
   });
 }

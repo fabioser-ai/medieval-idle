@@ -22,7 +22,10 @@ export class DeploymentEditor {
   readonly #inventory: Inventory;
   readonly #assignments = new Map<FormationSlot, Assignment>();
   #locked = false;
-  constructor(inventory: Inventory) {
+  constructor(
+    inventory: Inventory,
+    private readonly maxDeployment = Number.MAX_SAFE_INTEGER,
+  ) {
     this.#inventory = {};
     for (const type of UNIT_TYPES) {
       this.#inventory[type] = {};
@@ -81,6 +84,8 @@ export class DeploymentEditor {
         return `${slotLabel(slot)} percentages must be whole numbers from 0 to 100 and total 100%.`;
       total += entry.quantity;
     }
+    if (total > this.maxDeployment)
+      return `Prototype deployment limit is ${this.maxDeployment} soldiers.`;
     for (const type of UNIT_TYPES)
       for (const tier of EXPERIENCE_TIERS) {
         const available = this.#inventory[type]![tier]!;

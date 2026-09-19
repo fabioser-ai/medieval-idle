@@ -4,6 +4,10 @@ import type { BattlePhase } from '../../src/application/battleSession';
 import { demoArmies } from '../../src/game/demoBattle';
 import { mountDeployment } from '../../src/ui/deploymentView';
 import { ElementBoundary } from '../domBoundary';
+import { Campaign } from '../../src/application/campaign';
+import { SaveStore } from '../../src/application/saveStore';
+import { formationDuel } from '../../src/game/acceptanceScenarios';
+import { BattleAudio, type AudioEngine } from '../../src/game/BattleAudio';
 import type {
   BattleEvent,
   BattleEventLog,
@@ -192,13 +196,13 @@ it('restores one fresh editor only after return and starts consecutive battles w
   );
   scene.create();
   const initialNodeCount = host.all().length;
-  for (const quantity of [4, 7]) {
+  for (const [battle, quantity] of [4, 7].entries()) {
     const current = host.all();
     expect(current).toHaveLength(initialNodeCount);
     expect(current.filter((node) => node.tag === 'fieldset')).toHaveLength(5);
     expect(
       current.find((node) => node.id === 'inventory-infantry')!.textContent,
-    ).toContain('Recruit 12');
+    ).toContain(`Recruit ${battle === 0 ? 12 : 8}`);
     const input = current.find(
       (node) => node.attributes['aria-label'] === 'Front quantity',
     )!;
@@ -249,6 +253,94 @@ it('restores one fresh editor only after return and starts consecutive battles w
     expect(scene.playbackSpeed).toBe(oldSpeed);
     expect(boundary.image).toHaveBeenCalledTimes(800);
   }
+});
+
+it('persists a positive survivor from actual UI and scene terminal phase, then restores it on reload', () => {
+  const values = new Map<string, string>();
+  const store = new SaveStore({
+    getItem: (key) => values.get(key) ?? null,
+    setItem: (key, value) => {
+      values.set(key, value);
+    },
+  });
+  const campaign = new Campaign(store),
+    preset = formationDuel('rear');
+  campaign.reset(preset.left);
+  const host = new ElementBoundary('div');
+  const scene = new BattleScene((ready) =>
+    mountDeployment(host as unknown as HTMLElement, ready, {
+      campaign,
+      preset,
+      developer: true,
+    }),
+  );
+  scene.create();
+  host
+    .all()
+    .find((n) => n.textContent === 'To Battle')!
+    .fire('click');
+  expect(campaign.data.lastResult).toBeNull();
+  scene.setPlaybackSpeed(4);
+  tickUntilPhase(scene, 'result');
+  expect(campaign.data.lastResult?.winner).toBe('left');
+  expect(campaign.data.availableCohorts).toEqual([
+    { type: 'archer', tier: 'trained', count: 1, survivedVictories: 1 },
+  ]);
+  tickUntilPhase(scene, 'preparing');
+  const reload = new Campaign(store);
+  expect(reload.data).toEqual(campaign.data);
+  expect(
+    host.all().find((n) => n.id === 'inventory-archer')!.textContent,
+  ).toContain('Trained 1');
+  expect(host.all().find((n) => n.id === 'last-result')!.textContent).toContain(
+    'left 1 · right 0',
+  );
+});
+
+it('starts audio only through To Battle and follows renderer pause/result/return lifecycle', () => {
+  let starts = 0,
+    closes = 0,
+    state = 'idle';
+  const engine: AudioEngine = {
+    layer: () => ({ set() {}, stop() {} }),
+    resume() {
+      state = 'running';
+    },
+    suspend() {
+      state = 'suspended';
+    },
+    close() {
+      closes++;
+    },
+  };
+  const audio = new BattleAudio(() => {
+    starts++;
+    return engine;
+  });
+  const host = new ElementBoundary('div');
+  const scene = new BattleScene(
+    (ready) => mountDeployment(host as unknown as HTMLElement, ready),
+    audio,
+  );
+  scene.create();
+  tick(scene, 100);
+  expect(starts).toBe(0);
+  const qty = host
+    .all()
+    .find((n) => n.attributes['aria-label'] === 'Front quantity')!;
+  qty.value = '4';
+  qty.fire('input');
+  host
+    .all()
+    .find((n) => n.textContent === 'To Battle')!
+    .fire('click');
+  expect(starts).toBe(1);
+  scene.setPlaybackSpeed(0);
+  expect(state).toBe('suspended');
+  scene.setPlaybackSpeed(4);
+  expect(state).toBe('running');
+  tickUntilPhase(scene, 'preparing');
+  expect(closes).toBe(1);
 });
 function views() {
   return boundary.images.filter((view) => view.active);

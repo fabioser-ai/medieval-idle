@@ -5,11 +5,14 @@ import {
 import type { BattleResult } from '../domain/battleEvents';
 import { demoArmies } from '../game/demoBattle';
 import type { DeploymentEditor } from './deployment';
+import type { ArmyDeployment } from '../domain/army';
+import type { Campaign } from '../application/campaign';
 export interface ViewingControls {
   setPlaybackSpeed(speed: PlaybackSpeed): void;
 }
 export interface BattleRenderer extends ViewingControls {
   play(result: BattleResult): void;
+  startAudioFromGesture?(): void;
 }
 export class BattleController {
   #started = false;
@@ -17,6 +20,11 @@ export class BattleController {
   constructor(
     private readonly editor: DeploymentEditor,
     private readonly renderer: BattleRenderer,
+    private readonly options: {
+      enemy?: ArmyDeployment;
+      seed?: number;
+      campaign?: Campaign;
+    } = {},
   ) {
     this.viewing = Object.freeze({
       setPlaybackSpeed: (speed: PlaybackSpeed) => {
@@ -29,11 +37,19 @@ export class BattleController {
   }
   start(): void {
     if (this.#started) throw new Error('Battle already started.');
-    const deployment = this.editor.lock();
+    const requested = this.editor.buildDeployment();
+    const deployment = this.options.campaign?.deploy(requested) ?? requested;
+    this.editor.lock();
     const [, enemy] = demoArmies();
     // Small prototype inventory only. Session is not retained or advanced:
     // the scene's cinematic renderer clock is the sole playback authority.
-    const result = new BattleSession().start(deployment, enemy, 626);
+    this.renderer.startAudioFromGesture?.();
+    const result = new BattleSession().start(
+      deployment,
+      this.options.enemy ?? enemy,
+      this.options.seed ?? 626,
+    );
+    this.options.campaign?.stage(result, deployment);
     this.renderer.play(result);
     this.#started = true;
     this.viewing.setPlaybackSpeed(1);

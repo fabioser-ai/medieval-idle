@@ -1,5 +1,108 @@
 import { expect, test } from '@playwright/test';
 
+for (const scenario of [
+  {
+    id: 'equal-infantry',
+    outcome: 'draw',
+    winner: null,
+    ticks: 6620,
+    left: 0,
+    right: 0,
+  },
+  {
+    id: 'veteran-line',
+    outcome: 'victory',
+    winner: 'right',
+    ticks: 2393,
+    left: 0,
+    right: 90,
+  },
+  {
+    id: 'spear-and-bow',
+    outcome: 'victory',
+    winner: 'right',
+    ticks: 1646,
+    left: 0,
+    right: 40,
+  },
+  {
+    id: 'archer-rear',
+    outcome: 'victory',
+    winner: 'left',
+    ticks: 1897,
+    left: 1,
+    right: 0,
+  },
+  {
+    id: 'archer-front',
+    outcome: 'victory',
+    winner: 'right',
+    ticks: 2132,
+    left: 0,
+    right: 1,
+  },
+]) {
+  test(`terminal outcome and persisted survivors: ${scenario.id}`, async ({
+    page,
+  }) => {
+    test.setTimeout(150_000);
+    const errors: string[] = [];
+    page.on('pageerror', (error) => errors.push(error.message));
+    page.on('console', (message) => {
+      if (message.type() === 'error') errors.push(message.text());
+    });
+    await page.goto('/?dev=1');
+    await page
+      .getByText('Developer acceptance presets', { exact: true })
+      .click();
+    await page.getByLabel('Acceptance preset').selectOption(scenario.id);
+    await expect(page.getByRole('button', { name: 'To Battle' })).toBeEnabled();
+    await page.getByRole('button', { name: 'To Battle' }).click();
+    await page.getByRole('button', { name: '4×', exact: true }).click();
+    // Summary is written only when the sole renderer clock reaches terminal result.
+    await expect(page.locator('#last-result')).toContainText(
+      `Last result: ${scenario.outcome}`,
+      { timeout: 125_000 },
+    );
+    await expect(page.locator('#last-result')).toContainText(
+      `survivors left ${scenario.left} · right ${scenario.right}`,
+    );
+    const before = await page.evaluate(() =>
+      JSON.parse(localStorage.getItem('medieval-idle.save')!),
+    );
+    expect(before.lastResult).toEqual({
+      outcome: scenario.outcome,
+      winner: scenario.winner,
+      durationTicks: scenario.ticks,
+      leftSurvivors: scenario.left,
+      rightSurvivors: scenario.right,
+    });
+    expect(before.lastSeed).toBe(626);
+    expect(before.availableCohorts).toEqual(
+      scenario.left === 1
+        ? [{ type: 'archer', tier: 'trained', count: 1, survivedVictories: 1 }]
+        : [],
+    );
+    await page.reload();
+    await expect(page.locator('canvas')).toHaveAttribute(
+      'data-phase',
+      'preparing',
+    );
+    await expect(page.locator('#last-result')).toContainText(
+      `survivors left ${scenario.left} · right ${scenario.right}`,
+    );
+    expect(
+      await page.evaluate(() =>
+        JSON.parse(localStorage.getItem('medieval-idle.save')!),
+      ),
+    ).toEqual(before);
+    await expect(page.locator('#inventory-archer')).toContainText(
+      `Trained ${scenario.left}`,
+    );
+    expect(errors).toEqual([]);
+  });
+}
+
 for (const viewport of [
   { width: 1440, height: 900 },
   { width: 844, height: 390 },
