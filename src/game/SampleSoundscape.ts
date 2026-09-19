@@ -37,7 +37,10 @@ export class SampleSoundscape {
   private loading?: Promise<void>;
 
   startFromGesture(): void {
-    if (typeof globalThis.AudioContext === 'undefined' || typeof fetch === 'undefined')
+    if (
+      typeof globalThis.AudioContext === 'undefined' ||
+      typeof fetch === 'undefined'
+    )
       return;
     this.context ??= new AudioContext();
     void this.context.resume().catch(() => {});

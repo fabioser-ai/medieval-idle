@@ -212,7 +212,9 @@ it('waits for deployment, announces readiness, and accepts only renderer playbac
 it('restores one fresh editor only after return and starts consecutive battles without retaining UI listeners', () => {
   const host = new ElementBoundary('div');
   const scene = new BattleScene((readyScene) =>
-    mountDeployment(host as unknown as HTMLElement, readyScene, { prefill: false }),
+    mountDeployment(host as unknown as HTMLElement, readyScene, {
+      prefill: false,
+    }),
   );
   scene.create();
   const initialNodeCount = host.all().length;
@@ -228,7 +230,9 @@ it('restores one fresh editor only after return and starts consecutive battles w
     )!;
     input.value = String(quantity);
     input.fire('input');
-    const start = current.find((node) => node.textContent === 'March to Battle')!;
+    const start = current.find(
+      (node) => node.textContent === 'March to Battle',
+    )!;
     expect(start.disabled).toBe(false);
     start.fire('click');
     expect(scene.playback.counts.left).toBe(quantity);
