@@ -255,3 +255,59 @@ button:focus-visible {
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+/* V2: the common path is a battle-plan choice, not a spreadsheet. */
+.quick-deployment {
+  padding: 4px 0 14px;
+}
+.quick-plans {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+.quick-plan {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  min-height: 92px;
+  padding: 14px;
+  text-align: left;
+  background: #21373b;
+}
+.quick-plan strong {
+  margin-bottom: 6px;
+  color: #f3e7be;
+  font-size: 17px;
+}
+.quick-plan span {
+  color: #c8d7d2;
+  font-size: 13px;
+  line-height: 1.35;
+}
+.quick-plan[aria-pressed='true'] {
+  color: inherit;
+  background: #304d50;
+  border-color: #e8d9a5;
+  box-shadow: inset 0 0 0 1px #e8d9a5;
+}
+.advanced-deployment {
+  margin: 4px 0 14px;
+  border-top: 1px solid #526966;
+}
+.advanced-deployment > summary {
+  padding: 12px 2px;
+  color: #b9cbc5;
+  cursor: pointer;
+  font-weight: 650;
+}
+.advanced-deployment-body {
+  padding: 0 2px 8px;
+}
+@media (max-width: 650px) {
+  .quick-plans {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .quick-plan {
+    min-height: 0;
+  }
+}

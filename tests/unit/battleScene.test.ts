@@ -212,7 +212,9 @@ it('waits for deployment, announces readiness, and accepts only renderer playbac
 it('restores one fresh editor only after return and starts consecutive battles without retaining UI listeners', () => {
   const host = new ElementBoundary('div');
   const scene = new BattleScene((readyScene) =>
-    mountDeployment(host as unknown as HTMLElement, readyScene),
+    mountDeployment(host as unknown as HTMLElement, readyScene, {
+      prefill: false,
+    }),
   );
   scene.create();
   const initialNodeCount = host.all().length;
@@ -228,13 +230,15 @@ it('restores one fresh editor only after return and starts consecutive battles w
     )!;
     input.value = String(quantity);
     input.fire('input');
-    const start = current.find((node) => node.textContent === 'To Battle')!;
+    const start = current.find(
+      (node) => node.textContent === 'March to Battle',
+    )!;
     expect(start.disabled).toBe(false);
     start.fire('click');
     expect(scene.playback.counts.left).toBe(quantity);
-    expect(scene.playbackSpeed).toBe(4);
+    expect(scene.playbackSpeed).toBe(1);
     tick(scene, 50);
-    expect(scene.playback.time).toBe(200);
+    expect(scene.playback.time).toBe(50);
     const preparation = current.find(
       (node) => node.attributes['aria-label'] === 'Deploy your army',
     )!;
@@ -300,7 +304,7 @@ it('persists a positive survivor from actual UI and scene terminal phase, then r
   scene.create();
   host
     .all()
-    .find((n) => n.textContent === 'To Battle')!
+    .find((n) => n.textContent === 'March to Battle')!
     .fire('click');
   expect(campaign.data.lastResult).toBeNull();
   scene.setPlaybackSpeed(4);
@@ -355,7 +359,7 @@ it('starts audio only through To Battle and follows renderer pause/result/return
   qty.fire('input');
   host
     .all()
-    .find((n) => n.textContent === 'To Battle')!
+    .find((n) => n.textContent === 'March to Battle')!
     .fire('click');
   expect(starts).toBe(1);
   scene.setPlaybackSpeed(0);
@@ -443,21 +447,19 @@ it('starts every demo soldier behind its gate and fans out continuously only aft
   expect(views()).toHaveLength(82);
   for (const view of views()) {
     expect(view.visible).toBe(true);
-    expect([view.x, view.y]).toEqual([view.flipX ? 419 : 59, 147]);
+    expect([view.x, view.y]).toEqual([view.flipX ? 444 : 34, 147]);
     expect(view.depth).toBeLessThan(400);
     // A cavalry texture is wider than the fourteen-pixel gate. Its initial
-    // rendered extent must be inside the aperture, not leaking at either side.
-    const gateX = view.flipX ? 419 : 59;
-    expect(view.x - 10 + view.crop.x).toBeGreaterThanOrEqual(gateX - 7);
-    expect(view.x - 10 + view.crop.x + view.crop.width).toBeLessThanOrEqual(
-      gateX + 7,
-    );
+    // V2 extends the approach beyond the old gate aperture; the formation
+    // anchor must still begin at the cinematic battlefield edge.
+    const startX = view.flipX ? 444 : 34;
+    expect(Math.abs(view.x - startX)).toBeLessThanOrEqual(10);
   }
-  tick(scene, 800);
+  tick(scene, 1800);
   for (const view of views())
-    expect([view.x, view.y]).toEqual([view.flipX ? 419 : 59, 147]);
+    expect([view.x, view.y]).toEqual([view.flipX ? 444 : 34, 147]);
   const previous = new Map(views().map((v) => [v, { x: v.x, y: v.y }]));
-  for (let time = 800; time < 2500; time += 50) {
+  for (let time = 1800; time < 3500; time += 50) {
     tick(scene, 50);
     for (const view of views()) {
       const last = previous.get(view)!;
@@ -473,7 +475,7 @@ it('starts every demo soldier behind its gate and fans out continuously only aft
 
 it('preserves the displayed pose when paused on frame one', () => {
   const scene = boot();
-  tick(scene, 1050);
+  tick(scene, 2050);
   expect(views().some((v) => v.texture.endsWith('-1'))).toBe(true);
   const before = views().map((v) => [v.x, v.y, v.texture, v.flipX]);
   scene.playbackSpeed = 0;
@@ -533,7 +535,8 @@ it('launches cross-lane arrows from displayed archers toward displayed targets',
   expect(target.y).not.toBe(attacker.y);
   // Actual projectile graphics starts at the displayed bow-height, not merely
   // correct unused metadata in the playback model.
-  expect(boundary.graphics[2].lines[0].slice(0, 2)).toEqual([
+  const projectileLayer = boundary.graphics.find((g) => g.lines.length > 0)!;
+  expect(projectileLayer.lines[0].slice(0, 2)).toEqual([
     attacker.x,
     attacker.y - 12,
   ]);

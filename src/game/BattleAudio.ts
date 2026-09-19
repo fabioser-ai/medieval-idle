@@ -1,3 +1,4 @@
+import { SampleSoundscape } from './SampleSoundscape';
 import type { BattlePhase } from '../application/battleSession';
 
 export interface AudioLayer {
@@ -26,10 +27,12 @@ export interface AudioFrame {
 export class BattleAudio {
   private engine?: AudioEngine;
   private layers: AudioLayer[] = [];
+  private readonly samples = new SampleSoundscape();
   constructor(
     private readonly factory: () => AudioEngine | undefined = webAudioEngine,
   ) {}
   startFromGesture(): void {
+    this.samples.startFromGesture();
     if (this.engine) return;
     try {
       this.engine = this.factory();
@@ -41,10 +44,12 @@ export class BattleAudio {
     }
   }
   setPaused(paused: boolean): void {
+    this.samples.setPaused(paused);
     if (paused) this.engine?.suspend();
     else this.engine?.resume();
   }
   update(frame: AudioFrame): void {
+    this.samples.update(frame);
     if (!this.engine) return;
     const { phase, time } = frame;
     const moving = ['marching', 'charging', 'fighting', 'returning'].includes(
@@ -87,6 +92,7 @@ export class BattleAudio {
     );
   }
   stop(): void {
+    this.samples.stop();
     for (const layer of this.layers) layer.stop();
     this.layers = [];
     this.engine?.close();

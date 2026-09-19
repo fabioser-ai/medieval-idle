@@ -7,7 +7,8 @@ import { demoArmies } from '../game/demoBattle';
 import type { DeploymentEditor } from './deployment';
 import type { ArmyDeployment } from '../domain/army';
 import type { Campaign } from '../application/campaign';
-export const DEFAULT_PLAYBACK_SPEED = 4;
+// V2 defaults to real-time cinematic playback; 2x/4x remain viewer choices.
+export const DEFAULT_PLAYBACK_SPEED = 1;
 export interface ViewingControls {
   setPlaybackSpeed(speed: PlaybackSpeed): void;
 }
