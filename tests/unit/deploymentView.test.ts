@@ -46,6 +46,33 @@ it('selects a developer preset explicitly, labels the fixed opponent, and prefil
   ).toBe('');
 });
 
+it('returns focus to a visible developer summary after battle remount', () => {
+  const host = new ElementBoundary('div');
+  let finish = () => {};
+  mountDeployment(
+    host as unknown as HTMLElement,
+    {
+      play() {},
+      setPlaybackSpeed() {},
+      setBattleFinishedHandler(handler) {
+        finish = handler;
+      },
+    },
+    { developer: true },
+  );
+
+  finish();
+
+  const summary = host
+    .all()
+    .find((node) => node.textContent === 'Developer acceptance presets')!;
+  const collapsedSelect = host
+    .all()
+    .find((node) => node.attributes['aria-label'] === 'Acceptance preset')!;
+  expect(summary.focused).toBe(true);
+  expect(collapsedSelect.focused).toBe(false);
+});
+
 it('blocks UI-thread deployments beyond 240 even when a loaded campaign contains more troops', () => {
   const host = new ElementBoundary('div'),
     campaign = new Campaign(

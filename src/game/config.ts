@@ -16,6 +16,7 @@ export function createGame(
     pixelArt: true,
     antialias: false,
     roundPixels: true,
+    audio: { noAudio: true },
     scene: [new BattleScene(onReady)],
     transparent: false,
     scale: {

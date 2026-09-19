@@ -16,6 +16,26 @@ import type {
 // Replace only the browser/GPU boundary. Real scene create/play/update, texture
 // baking, playback, aggregation and pool code all run against this image factory.
 const boundary = vi.hoisted(() => {
+  class Events {
+    private listeners = new Map<string, Set<() => void>>();
+    once(event: string, handler: () => void) {
+      const handlers = this.listeners.get(event) ?? new Set();
+      handlers.add(handler);
+      this.listeners.set(event, handlers);
+    }
+    off(event: string, handler?: () => void) {
+      if (handler) this.listeners.get(event)?.delete(handler);
+      else this.listeners.delete(event);
+    }
+    emit(event: string) {
+      const handlers = [...(this.listeners.get(event) ?? [])];
+      this.listeners.delete(event);
+      for (const handler of handlers) handler();
+    }
+    listenerCount(event: string) {
+      return this.listeners.get(event)?.size ?? 0;
+    }
+  }
   class Display {
     x = 0;
     y = 0;
@@ -131,7 +151,7 @@ const boundary = vi.hoisted(() => {
     cameras = { main: { setRoundPixels() {} } };
     textures = { exists: () => false };
     input = { keyboard: { on() {} } };
-    events = { once() {} };
+    events = new Events();
     game = { canvas: { dataset: {} } };
     add = {
       image,
@@ -144,12 +164,12 @@ const boundary = vi.hoisted(() => {
       text: () => new Display(),
     };
   }
-  return { images, graphics, image, Scene };
+  return { images, graphics, image, Scene, Events };
 });
 vi.mock('phaser', () => ({
   default: {
     Scene: boundary.Scene,
-    Scenes: { Events: { SHUTDOWN: 'shutdown' } },
+    Scenes: { Events: { SHUTDOWN: 'shutdown', DESTROY: 'destroy' } },
   },
 }));
 import { BattleScene } from '../../src/game/BattleScene';
@@ -342,6 +362,61 @@ it('starts audio only through To Battle and follows renderer pause/result/return
   tickUntilPhase(scene, 'preparing');
   expect(closes).toBe(1);
 });
+
+it.each([
+  ['shutdown', ['shutdown']],
+  ['destroy', ['destroy']],
+  ['shutdown followed by destroy', ['shutdown', 'destroy']],
+] as const)(
+  'cleans scene resources exactly once on %s',
+  (_label, lifecycleEvents) => {
+    let closes = 0,
+      stoppedLayers = 0;
+    const resultHandler = vi.fn(),
+      finishedHandler = vi.fn();
+    const audio = new BattleAudio(() => ({
+      layer: () => ({
+        set() {},
+        stop() {
+          stoppedLayers++;
+        },
+      }),
+      resume() {},
+      suspend() {},
+      close() {
+        closes++;
+      },
+    }));
+    const scene = new BattleScene(undefined, audio);
+    scene.create();
+    const [left, right] = demoArmies();
+    const result = new BattleSession().start(left, right, 626);
+    scene.play(result);
+    scene.startAudioFromGesture();
+    scene.setBattleResultHandler(resultHandler);
+    scene.setBattleFinishedHandler(finishedHandler);
+
+    const events = scene.events as unknown as InstanceType<
+      typeof boundary.Events
+    >;
+    for (const event of lifecycleEvents) events.emit(event);
+
+    expect(closes).toBe(1);
+    expect(stoppedLayers).toBe(7);
+    expect(scene.playback.units).toHaveLength(0);
+    expect(scene.playback.counts).toEqual({ left: 0, right: 0 });
+    expect(views()).toHaveLength(0);
+    expect(events.listenerCount('shutdown')).toBe(0);
+    expect(events.listenerCount('destroy')).toBe(0);
+
+    // Cleanup also drops both application callbacks, not merely the pool.
+    scene.play(result);
+    scene.setPlaybackSpeed(4);
+    tickUntilPhase(scene, 'preparing');
+    expect(resultHandler).not.toHaveBeenCalled();
+    expect(finishedHandler).not.toHaveBeenCalled();
+  },
+);
 function views() {
   return boundary.images.filter((view) => view.active);
 }

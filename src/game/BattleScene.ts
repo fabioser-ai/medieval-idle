@@ -27,6 +27,7 @@ export class BattleScene extends Phaser.Scene {
   private duration = 1;
   private battleFinishedHandler: (() => void) | undefined;
   private battleResultHandler: (() => void) | undefined;
+  private cleanedUp = false;
 
   constructor(
     private readonly onReady?: (scene: BattleScene) => void,
@@ -36,6 +37,7 @@ export class BattleScene extends Phaser.Scene {
   }
 
   create(): void {
+    this.cleanedUp = false;
     this.cameras.main.setRoundPixels(true);
     this.drawBattlefield();
     createUnitTextures(this);
@@ -52,14 +54,20 @@ export class BattleScene extends Phaser.Scene {
     );
     this.arrows = this.add.graphics().setDepth(450);
     this.drawLabels();
-    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+    const cleanup = () => {
+      if (this.cleanedUp) return;
+      this.cleanedUp = true;
+      this.events.off(Phaser.Scenes.Events.SHUTDOWN, cleanup);
+      this.events.off(Phaser.Scenes.Events.DESTROY, cleanup);
       this.playback.clear();
       this.pool.releaseAll();
       this.sprites.clear();
       this.battleFinishedHandler = undefined;
       this.battleResultHandler = undefined;
       this.audio.stop();
-    });
+    };
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, cleanup);
+    this.events.once(Phaser.Scenes.Events.DESTROY, cleanup);
     this.onReady?.(this);
   }
 

@@ -22,6 +22,7 @@ interface DeploymentOptions {
   preset?: AcceptanceScenario;
   developer?: boolean;
   prefill?: boolean;
+  focusOnMount?: boolean;
 }
 
 export function mountDeployment(
@@ -85,6 +86,7 @@ export function mountDeployment(
   start.setAttribute('aria-describedby', status.id);
   const fields: (HTMLInputElement | HTMLSelectElement)[] = [];
   const detachListeners: (() => void)[] = [];
+  let developerSummary: HTMLElement | undefined;
   const listen = (target: HTMLElement, event: string, handler: () => void) => {
     target.addEventListener(event, handler);
     detachListeners.push(() => target.removeEventListener(event, handler));
@@ -95,7 +97,8 @@ export function mountDeployment(
   };
   if (options.developer) {
     const details = element('details');
-    details.append(element('summary', 'Developer acceptance presets'));
+    developerSummary = element('summary', 'Developer acceptance presets');
+    details.append(developerSummary);
     const select = element('select');
     select.setAttribute('aria-label', 'Acceptance preset');
     const blank = element(
@@ -262,7 +265,7 @@ export function mountDeployment(
   // One replaceable scene callback, never one listener per frame or per phase.
   renderer.setBattleFinishedHandler(() => {
     campaign.finish();
-    remount({ prefill: false });
-    host.querySelector<HTMLSelectElement>('select')?.focus();
+    remount({ prefill: false, focusOnMount: true });
   });
+  if (options.focusOnMount) (developerSummary ?? fields[0])?.focus();
 }
