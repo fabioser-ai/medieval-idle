@@ -1,8 +1,5 @@
 import Phaser from 'phaser';
-import {
-  BattleSession,
-  type PlaybackSpeed,
-} from '../application/battleSession';
+import type { PlaybackSpeed } from '../application/battleSession';
 import type { BattleResult } from '../domain/battleEvents';
 import { BattlePlayback } from './BattlePlayback';
 import {
@@ -12,12 +9,11 @@ import {
 } from './battlePresentation';
 import { createUnitTextures, textureKey } from './PixelUnitFactory';
 import { UnitViewPool } from './UnitViewPool';
-import { demoArmies } from './demoBattle';
 
 /** Thin Phaser adapter; all event/state/allocation behavior lives outside Phaser. */
 export class BattleScene extends Phaser.Scene {
   readonly playback = new BattlePlayback();
-  playbackSpeed: PlaybackSpeed = 2;
+  playbackSpeed: PlaybackSpeed = 1;
   private pool!: UnitViewPool<Phaser.GameObjects.Image>;
   private readonly sprites = new Map<number, Phaser.GameObjects.Image>();
   private arrows!: Phaser.GameObjects.Graphics;
@@ -29,7 +25,7 @@ export class BattleScene extends Phaser.Scene {
   private progress!: Phaser.GameObjects.Rectangle;
   private duration = 1;
 
-  constructor() {
+  constructor(private readonly onReady?: (scene: BattleScene) => void) {
     super('BattleScene');
   }
 
@@ -50,22 +46,12 @@ export class BattleScene extends Phaser.Scene {
     );
     this.arrows = this.add.graphics().setDepth(450);
     this.drawLabels();
-    this.input.keyboard?.on('keydown-SPACE', () => {
-      if (this.playback.phase !== 'preparing')
-        this.playbackSpeed = this.playbackSpeed === 0 ? 2 : 0;
-    });
-    this.prompt
-      .setInteractive({ useHandCursor: true })
-      .on('pointerdown', () => {
-        if (this.playback.phase === 'preparing') this.startDemo();
-        else this.playbackSpeed = this.playbackSpeed === 0 ? 2 : 0;
-      });
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       this.playback.clear();
       this.pool.releaseAll();
       this.sprites.clear();
     });
-    this.startDemo();
+    this.onReady?.(this);
   }
 
   /** Task 7 / worker integration boundary: pass a completed session result here.
@@ -83,16 +69,10 @@ export class BattleScene extends Phaser.Scene {
     }
   }
 
-  private startDemo(): void {
-    this.playback.clear();
-    this.pool.releaseAll();
-    this.sprites.clear();
-    const [left, right] = demoArmies();
-    // The demo has 82 units, not 4,000. Do not wire giant deployments here.
-    const session = new BattleSession();
-    this.playbackSpeed = 2;
-    this.play(session.start(left, right, 626));
-    // Session goes out of scope; the presentation cursor owns only the current log.
+  setPlaybackSpeed(speed: PlaybackSpeed): void {
+    if (![0, 1, 2, 4].includes(speed))
+      throw new RangeError('Invalid playback speed.');
+    this.playbackSpeed = speed;
   }
 
   update(_time: number, delta: number): void {
@@ -100,6 +80,7 @@ export class BattleScene extends Phaser.Scene {
     this.playback.advance(Math.min(delta, 100), this.playbackSpeed);
     const { phase, time } = this.playback;
     this.game.canvas.dataset.phase = phase;
+    this.game.canvas.dataset.playbackTime = String(time);
     for (const unit of this.playback.units) {
       const sprite = this.sprites.get(unit.id);
       if (!sprite) continue;
@@ -155,8 +136,8 @@ export class BattleScene extends Phaser.Scene {
     this.status.setText(this.playbackSpeed === 0 ? 'PAUSED' : label);
     this.prompt.setText(
       phase === 'preparing'
-        ? 'REPLAY DEMO  >'
-        : `${this.playbackSpeed === 0 ? 'RESUME' : 'PAUSE'}  ·  2× DEMO`,
+        ? 'FIELD AT REST'
+        : `VIEW ONLY · ${this.playbackSpeed === 0 ? 'PAUSED' : `${this.playbackSpeed}×`}`,
     );
     this.progress.setScale(Math.min(1, time / this.duration), 1);
   }

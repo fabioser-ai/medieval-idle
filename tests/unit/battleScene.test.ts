@@ -155,10 +155,32 @@ beforeEach(() => {
 function boot() {
   const scene = new BattleScene();
   scene.create();
+  const [left, right] = demoArmies();
+  scene.play(new BattleSession().start(left, right, 626));
   scene.playbackSpeed = 1;
   scene.update(0, 0);
   return scene;
 }
+
+it('waits for deployment, announces readiness, and accepts only renderer playback speeds', () => {
+  let ready = false;
+  const scene = new BattleScene(() => {
+    ready = true;
+  });
+  scene.create();
+  expect(scene.playback.phase).toBe('preparing');
+  expect(views()).toHaveLength(0);
+  expect(ready).toBe(true);
+  const [left, right] = demoArmies();
+  scene.play(new BattleSession().start(left, right, 626));
+  scene.setPlaybackSpeed(0);
+  tick(scene, 200);
+  expect(scene.playback.time).toBe(0);
+  scene.setPlaybackSpeed(4);
+  tick(scene, 50);
+  expect(scene.playback.time).toBe(200);
+  expect(() => scene.setPlaybackSpeed(3 as never)).toThrow(/speed/);
+});
 function views() {
   return boundary.images.filter((view) => view.active);
 }
