@@ -111,7 +111,7 @@ it('wires the actual Web Audio adapter with bounded automation and disconnects e
     expect(contexts).toHaveLength(0);
     for (let battle = 0; battle < 3; battle++) {
       audio.startFromGesture();
-      const context = contexts[battle];
+      const context = contexts.filter((candidate) => candidate.oscillators.length > 0)[battle];
       expect(context.oscillators).toHaveLength(7);
       expect(context.gains).toHaveLength(7);
       for (let time = 0; time < 1000; time += 10)
