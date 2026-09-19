@@ -88,7 +88,7 @@ describe('BattlePlayback', () => {
     playback.load({ ...base, events: log.finish() });
     playback.advance(800, 1);
     for (let i = 0; i < 100; i++) playback.advance(50, 1);
-    expect(playback.units[0].position).toBeCloseTo(-0.725);
+    expect(playback.units[0].position).toBeCloseTo(-0.7404);
   });
 
   it('keeps the aggregated view until its last member dies without remapping survivors', () => {
@@ -110,7 +110,7 @@ describe('BattlePlayback', () => {
     playback.load({ ...base, initialUnits, events: log.finish() });
     const first = playback.units[0];
     expect(first.unitIds).toEqual([1, 2, 3, 4, 5]);
-    playback.advance(850, 1);
+    playback.advance(1850, 1);
     expect(first.aliveCount).toBe(4);
     expect(first.dying).toBe(false);
     expect(playback.counts.left).toBe(1999);
@@ -198,7 +198,7 @@ describe('BattlePlayback', () => {
     const playback = new BattlePlayback();
     playback.load(fixture());
     expect(playback.phase).toBe('gates');
-    playback.advance(800, 1);
+    playback.advance(1800, 1);
     expect(playback.phase).toBe('marching');
     playback.advance(500, 1);
     expect(playback.phase).toBe('charging');
@@ -226,7 +226,7 @@ describe('BattlePlayback', () => {
     playback.advance(10000, 0);
     expect(playback.phase).toBe('gates');
     expect(playback.time).toBe(0);
-    playback.advance(1450, 1);
+    playback.advance(2450, 1);
     expect(playback.counts.right).toBe(0);
     playback.load(fixture());
     expect(playback.counts.right).toBe(1);
