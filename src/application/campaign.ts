@@ -46,6 +46,16 @@ export class Campaign {
     }
     return inventory;
   }
+  get depleted(): boolean {
+    return this.data.availableCohorts.every((cohort) => cohort.count === 0);
+  }
+  /** Explicit new campaign, never resurrection or automatic loss recovery. */
+  startNewCampaign(): void {
+    if (!this.depleted || this.pending)
+      throw new Error('Only a completed, depleted campaign can be replaced.');
+    this.data = fresh();
+    this.persist();
+  }
   reset(army: ArmyDeployment): void {
     this.pending = undefined;
     this.data = {

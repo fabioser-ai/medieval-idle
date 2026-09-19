@@ -116,3 +116,35 @@ it('rejects overdraw and more than 240 troops before simulation', () => {
     }),
   ).toThrow(/inventory/i);
 });
+
+it('preserves a depleted campaign until an explicit new campaign rotates its saved history', () => {
+  const storage = memory(),
+    store = new SaveStore(storage),
+    campaign = new Campaign(store);
+  const preset = formationDuel('front');
+  campaign.reset(preset.left);
+  campaign.stage(
+    simulateBattle(preset.left, preset.right, preset.seed),
+    preset.left,
+  );
+  campaign.finish();
+  const lost = campaign.data;
+  expect(lost.lastResult?.winner).toBe('right');
+  expect(new Campaign(store).depleted).toBe(true);
+  expect(new Campaign(store).data.availableCohorts).toEqual([]);
+  campaign.startNewCampaign();
+  expect(campaign.depleted).toBe(false);
+  expect(
+    campaign.data.availableCohorts.reduce((sum, c) => sum + c.count, 0),
+  ).toBe(120);
+  expect(
+    campaign.data.availableCohorts.every((c) => c.survivedVictories === 0),
+  ).toBe(true);
+  expect(campaign.data.lastResult).toBeNull();
+  expect(campaign.data.lastSeed).toBeNull();
+  expect(new Campaign(store).data).toEqual(campaign.data);
+  expect(JSON.parse(storage.getItem('medieval-idle.save.backup')!)).toEqual(
+    lost,
+  );
+  expect(() => campaign.startNewCampaign()).toThrow(/depleted/);
+});

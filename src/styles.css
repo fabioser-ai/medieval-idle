@@ -16,14 +16,18 @@ body {
 
 main {
   position: relative;
-  min-height: 100vh;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  gap: 8px;
+  height: 100vh;
+  height: 100dvh;
   padding: 18px 20px;
 }
 
 h1 {
   position: relative;
   z-index: 1;
-  margin: 0 auto 12px;
+  margin: 0 auto;
   max-width: 1160px;
   font-size: 20px;
   color: #f3e7be;
@@ -31,11 +35,13 @@ h1 {
 }
 
 #game {
-  position: fixed;
-  inset: 0;
-  margin: auto;
-  width: min(100vw, calc(100vh * 16 / 9));
-  height: min(100vh, calc(100vw * 9 / 16));
+  position: relative;
+  grid-row: 2;
+  min-height: 0;
+  min-width: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
 }
 
 #game canvas {
@@ -47,7 +53,10 @@ h1 {
 }
 
 .battle-ui {
-  position: relative;
+  position: absolute;
+  top: 54px;
+  left: 20px;
+  right: 20px;
   z-index: 1;
   display: flex;
   flex-direction: column;
@@ -182,11 +191,18 @@ button:focus-visible {
   overflow-wrap: anywhere;
 }
 .viewing {
-  position: fixed;
-  left: 16px;
-  right: 16px;
-  bottom: 12px;
-  max-width: 530px;
+  position: static;
+  grid-row: 3;
+  width: 100%;
+  max-height: none;
+}
+.viewing #last-result {
+  margin: 0;
+  padding: 0 12px 8px;
+  font-size: 14px;
+}
+.campaign-confirmation button {
+  margin: 4px 8px 4px 0;
 }
 .viewing-controls {
   display: flex;
@@ -206,6 +222,9 @@ button:focus-visible {
     font-size: 18px;
   }
   .battle-ui {
+    top: 40px;
+    left: 12px;
+    right: 12px;
     max-height: calc(100vh - 52px);
   }
   .deployment {

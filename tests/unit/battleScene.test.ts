@@ -232,6 +232,9 @@ it('restores one fresh editor only after return and starts consecutive battles w
     expect(start.disabled).toBe(false);
     start.fire('click');
     expect(scene.playback.counts.left).toBe(quantity);
+    expect(scene.playbackSpeed).toBe(4);
+    tick(scene, 50);
+    expect(scene.playback.time).toBe(200);
     const preparation = current.find(
       (node) => node.attributes['aria-label'] === 'Deploy your army',
     )!;

@@ -14,7 +14,9 @@ The game renders at a logical resolution of 480 × 270 with nearest-neighbor pix
 Requires Node 22+ (CI uses Node 22). You command blue Alderwatch on the left;
 the red Emberfall opponent is fixed and listed in the deployment panel. Choose
 formations, counts and tier percentages, then click **To Battle**. During
-combat only Pause / 1× / 2× / 4× are available. The renderer owns playback time;
+combat only Pause / 1× / 2× / 4× are available. Every new battle starts at 4×;
+the symmetric infantry scenario takes 82.75 seconds of combat playback
+(about 84 seconds including the gate introduction). The renderer owns playback time;
 speed does not change the deterministic result.
 
 The default roster has 120 troops. Deployments are capped at 240 before any
@@ -25,6 +27,14 @@ the roster and last result from validated, versioned localStorage with a valid
 previous-save backup. Storage failures are shown; progress then lasts only in
 the current tab. Reload during an unfinished battle restores the prior completed
 campaign, not an in-progress replay. Defeated troops are not replenished.
+Only when the entire saved roster is depleted, **Start new campaign** becomes
+available. It asks for explicit confirmation before replacing the campaign and
+last result with the initial 120-troop prototype roster. Cancel changes nothing;
+confirmation saves the new campaign and rotates the depleted save to backup.
+This is a new campaign, not revival or an implemented recruitment economy.
+
+Playback controls occupy their own layout row below the fitted 16:9 canvas,
+not an overlay on the battlefield. Preparation remains independently scrollable.
 
 Open `/?dev=1` for a collapsed, labeled developer preset selector. Choosing a
 preset **replaces the current campaign roster**, making acceptance runs/reset
@@ -51,7 +61,7 @@ npm run test:e2e
 ```
 
 Node tests are not proof of browser/GPU/audio quality. The current environment
-has no Chromium executable; the seven Playwright tests have been attempted but
+has no Chromium executable; the eight Playwright tests have been attempted but
 are blocked before their bodies execute. Do not call this browser-accepted.
 
 ## Build and deployment

@@ -4,7 +4,11 @@ import {
   UNIT_TYPES,
   type UnitType,
 } from '../domain/army';
-import { BattleController, type BattleRenderer } from './controls';
+import {
+  BattleController,
+  DEFAULT_PLAYBACK_SPEED,
+  type BattleRenderer,
+} from './controls';
 import { DeploymentEditor, slotLabel } from './deployment';
 import { Campaign } from '../application/campaign';
 import {
@@ -95,6 +99,43 @@ export function mountDeployment(
     for (const detach of detachListeners) detach();
     mountDeployment(host, renderer, { ...options, ...next, campaign });
   };
+  if (campaign.depleted) {
+    const restart = element('button', 'Start new campaign');
+    restart.type = 'button';
+    const confirmation = element('section', '', 'campaign-confirmation');
+    confirmation.hidden = true;
+    confirmation.setAttribute('aria-label', 'Confirm campaign replacement');
+    const confirm = element('button', 'Confirm new campaign');
+    const cancel = element('button', 'Cancel');
+    confirm.type = cancel.type = 'button';
+    confirmation.append(
+      element(
+        'p',
+        'Replace this depleted campaign and its last result with the initial prototype roster? This starts a new campaign; fallen troops are not revived.',
+      ),
+      confirm,
+      cancel,
+    );
+    listen(restart, 'click', () => {
+      confirmation.hidden = false;
+      restart.hidden = true;
+      cancel.focus();
+    });
+    listen(cancel, 'click', () => {
+      confirmation.hidden = true;
+      restart.hidden = false;
+      restart.focus();
+    });
+    listen(confirm, 'click', () => {
+      campaign.startNewCampaign();
+      remount({ preset: undefined, prefill: false, focusOnMount: true });
+    });
+    preparation.append(
+      element('p', 'No troops remain in this campaign.', 'intro'),
+      restart,
+      confirmation,
+    );
+  }
   if (options.developer) {
     const details = element('details');
     developerSummary = element('summary', 'Developer acceptance presets');
@@ -222,7 +263,10 @@ export function mountDeployment(
   const buttons = ([0, 1, 2, 4] as const).map((speed) => {
     const button = element('button', speed === 0 ? 'Pause' : `${speed}×`);
     button.type = 'button';
-    button.setAttribute('aria-pressed', String(speed === 1));
+    button.setAttribute(
+      'aria-pressed',
+      String(speed === DEFAULT_PLAYBACK_SPEED),
+    );
     listen(button, 'click', () => {
       controller.viewing.setPlaybackSpeed(speed);
       buttons.forEach((other, index) =>
@@ -251,7 +295,7 @@ export function mountDeployment(
     preparation.hidden = true;
     viewing.hidden = false;
     host.className = 'battle-ui viewing';
-    status.textContent = 'Viewing at 1×. Strategy locked.';
+    status.textContent = `Viewing at ${DEFAULT_PLAYBACK_SPEED}×. Strategy locked.`;
     buttons[0].focus();
   });
   host.className = 'battle-ui';

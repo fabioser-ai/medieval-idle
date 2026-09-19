@@ -1,5 +1,58 @@
 import { expect, test } from '@playwright/test';
 
+test('normal-route depleted campaign recovery is explicit, cancelable, persisted, and playable', async ({
+  page,
+}) => {
+  await page.goto('/');
+  await page.evaluate(() =>
+    localStorage.setItem(
+      'medieval-idle.save',
+      JSON.stringify({
+        schemaVersion: 1,
+        kingdom: 'Alderwatch',
+        availableCohorts: [],
+        reservedTrainerCohorts: [],
+        lastSeed: 626,
+        lastResult: {
+          outcome: 'victory',
+          winner: 'right',
+          durationTicks: 2132,
+          leftSurvivors: 0,
+          rightSurvivors: 1,
+        },
+      }),
+    ),
+  );
+  await page.reload();
+  await expect(page.getByRole('button', { name: 'To Battle' })).toBeDisabled();
+  await page
+    .getByRole('button', { name: 'Start new campaign', exact: true })
+    .click();
+  await page.getByRole('button', { name: 'Cancel', exact: true }).click();
+  await page.reload();
+  await expect(page.locator('#inventory-infantry')).toContainText('Recruit 0');
+  await expect(page.locator('#last-result')).toContainText('right wins');
+  await page
+    .getByRole('button', { name: 'Start new campaign', exact: true })
+    .click();
+  await page
+    .getByRole('button', { name: 'Confirm new campaign', exact: true })
+    .click();
+  await page.reload();
+  await expect(
+    page.getByRole('button', { name: 'Start new campaign', exact: true }),
+  ).toHaveCount(0);
+  await expect(page.locator('#inventory-infantry')).toContainText('Recruit 12');
+  await expect(page.locator('#last-result')).toContainText(
+    'No completed battle',
+  );
+  await page.getByLabel('Front quantity').fill('4');
+  await page.getByRole('button', { name: 'To Battle' }).click();
+  await expect(
+    page.getByRole('navigation', { name: 'Battle playback' }),
+  ).toBeVisible();
+});
+
 for (const scenario of [
   {
     id: 'equal-infantry',
@@ -58,7 +111,9 @@ for (const scenario of [
     await page.getByLabel('Acceptance preset').selectOption(scenario.id);
     await expect(page.getByRole('button', { name: 'To Battle' })).toBeEnabled();
     await page.getByRole('button', { name: 'To Battle' }).click();
-    await page.getByRole('button', { name: '4×', exact: true }).click();
+    await expect(
+      page.getByRole('button', { name: '4×', exact: true }),
+    ).toHaveAttribute('aria-pressed', 'true');
     // Summary is written only when the sole renderer clock reaches terminal result.
     await expect(page.locator('#last-result')).toContainText(
       `Last result: ${scenario.outcome}`,
@@ -159,6 +214,24 @@ for (const viewport of [
       expect(canvas!.y).toBeGreaterThanOrEqual(0);
       expect(canvas!.x + canvas!.width).toBeLessThanOrEqual(viewport.width);
       expect(canvas!.y + canvas!.height).toBeLessThanOrEqual(viewport.height);
+      expect(canvas!.width / canvas!.height).toBeCloseTo(16 / 9, 2);
+      if (
+        await page
+          .getByRole('navigation', { name: 'Battle playback' })
+          .isVisible()
+      ) {
+        // Phaser FIT periodically rechecks parent bounds after the UI row appears.
+        await expect
+          .poll(async () => {
+            const field = await page.locator('canvas').boundingBox();
+            const controls = await page.locator('#battle-ui').boundingBox();
+            return (
+              controls!.y >= field!.y + field!.height &&
+              controls!.y + controls!.height <= viewport.height
+            );
+          })
+          .toBe(true);
+      }
       expect(
         await page
           .getByRole('status')
@@ -177,6 +250,9 @@ for (const viewport of [
       '2×',
       '4×',
     ]);
+    await expect(
+      page.getByRole('button', { name: '4×', exact: true }),
+    ).toHaveAttribute('aria-pressed', 'true');
     await page.getByRole('button', { name: 'Pause', exact: true }).click();
     await expect(page.getByRole('status')).toContainText('Paused');
     const time = await page

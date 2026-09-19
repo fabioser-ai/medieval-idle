@@ -13,18 +13,22 @@ an injected engine, campaign/save validation, backup recovery and progression.
 The real scene integration confirms a positive surviving archer is committed
 at terminal result, not before, and survives SaveStore reload.
 
-Implementation verification: `npm test` passed **210 tests in 22 files on two
+Current final-fix verification: `npm test` passed **219 tests in 24 files on two
 consecutive full runs**. `npm run lint`, `npm run format:check`, `npm run build`
 and `git diff --check` exited 0. The native Web Audio adapter was also exercised
 against a fake native context: seven oscillators/seven gains, bounded scheduled
 automation, handled resume rejection, and every node disconnected over three
 battles. This proves adapter calls, not audible output or browser behavior.
 
-`npm run test:e2e` was attempted for seven tests. All seven stopped before
+`npm run test:e2e` was attempted for eight tests. All eight stopped before
 test-body execution: Playwright could not find
 `chromium_headless_shell-1243/chrome-headless-shell-linux64/chrome-headless-shell`.
 This is an environment blocker, **not a browser pass**. Browser console-error,
 layout, gesture/autoplay and persistence assertions are written but UNVERIFIED.
+The current Node evidence includes explicit depleted-campaign confirmation,
+cancel/reload preservation, backup rotation, fresh playable editor/controller,
+and 4× initial UI/scene playback. A CSS/DOM source contract protects separate
+grid rows; it is not a browser layout-engine or actual geometry measurement.
 
 ## Fixed scenarios
 
@@ -70,8 +74,10 @@ npm run test:e2e
 
 For manual testing, run `npm run dev -- --host 0.0.0.0` on a trusted local
 network and open the displayed URL with `/?dev=1`. Start quietly with speakers
-or headphones at low volume. The symmetric infantry case takes approximately
-84 seconds at 4×; the others are shorter. Each browser acceptance test allows
+or headphones at low volume. Every new battle defaults to 4×. The symmetric
+infantry case takes 82.75 seconds of combat playback (331 seconds at 1×),
+approximately 84 seconds with the gate introduction; the others are shorter.
+No deterministic combat ticks or balance changed. Each browser acceptance test allows
 150 seconds and waits for the persisted terminal summary, not a guessed delay.
 
 For **each** preset, record browser/version, OS/device, viewport/orientation,
@@ -94,6 +100,10 @@ console errors and defects. Do not replace UNVERIFIED with PASS until observed.
       audio, lingering contexts after return, or growing active node count.
 - [ ] After return, fields and keyboard focus recover, with surviving inventory
       instead of the old full roster. Depleted troops do not respawn on reload.
+- [ ] Normal route, genuinely depleted roster: Start new campaign opens an
+      explicit replacement confirmation. Cancel and reload preserve the empty
+      roster and result. Confirm restores 120 initial troops, clears the last
+      result, rotates the depleted backup, and allows another battle after reload.
 - [ ] With Web Audio unavailable/blocked, silent gameplay still works.
 - [ ] With storage blocked, visible save failure notice appears; gameplay works
       in memory but does not claim durable persistence.
@@ -101,7 +111,8 @@ console errors and defects. Do not replace UNVERIFIED with PASS until observed.
       reload reports recovery from `medieval-idle.save.backup`. Restore test
       data or choose a fresh preset afterward.
 - [ ] At desktop 1440×900 and landscape 844×390: canvas wholly in viewport,
-      no horizontal overflow, controls at least 44×44, text legible.
+      fitted 16:9 aspect, no overlap between canvas and viewing card, no horizontal
+      overflow, controls at least 44×44, text legible, preparation scrollable.
 - [ ] Check real Safari/iOS and Chrome/Android: autoplay, background/resume,
       audio interruptions, touch behavior and comfortable frame rate.
 

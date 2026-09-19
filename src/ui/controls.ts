@@ -7,6 +7,7 @@ import { demoArmies } from '../game/demoBattle';
 import type { DeploymentEditor } from './deployment';
 import type { ArmyDeployment } from '../domain/army';
 import type { Campaign } from '../application/campaign';
+export const DEFAULT_PLAYBACK_SPEED = 4;
 export interface ViewingControls {
   setPlaybackSpeed(speed: PlaybackSpeed): void;
 }
@@ -52,6 +53,6 @@ export class BattleController {
     this.options.campaign?.stage(result, deployment);
     this.renderer.play(result);
     this.#started = true;
-    this.viewing.setPlaybackSpeed(1);
+    this.viewing.setPlaybackSpeed(DEFAULT_PLAYBACK_SPEED);
   }
 }
