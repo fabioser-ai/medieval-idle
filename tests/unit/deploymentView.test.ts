@@ -9,6 +9,7 @@ it('renders all five labeled groups, exact inventory, one status, and blocks inv
   mountDeployment(host as unknown as HTMLElement, {
     play() {},
     setPlaybackSpeed() {},
+    setBattleFinishedHandler() {},
   });
   const all = host.all();
   expect(all.filter((n) => n.tag === 'fieldset')).toHaveLength(5);
@@ -50,6 +51,7 @@ it('starts the selected formations, disables/hides every strategy input, focuses
     setPlaybackSpeed: (value) => {
       speed = value;
     },
+    setBattleFinishedHandler() {},
   });
   const all = host.all();
   for (const [label, value] of [

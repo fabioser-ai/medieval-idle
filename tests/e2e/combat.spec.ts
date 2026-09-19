@@ -53,6 +53,9 @@ for (const viewport of [
       expect(canvas!.width).toBeLessThanOrEqual(viewport.width);
       expect(canvas!.height).toBeLessThanOrEqual(viewport.height);
       expect(canvas!.x).toBeGreaterThanOrEqual(0);
+      expect(canvas!.y).toBeGreaterThanOrEqual(0);
+      expect(canvas!.x + canvas!.width).toBeLessThanOrEqual(viewport.width);
+      expect(canvas!.y + canvas!.height).toBeLessThanOrEqual(viewport.height);
       expect(
         await page
           .getByRole('status')

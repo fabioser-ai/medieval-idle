@@ -15,9 +15,13 @@ const prototypeInventory: Inventory = Object.fromEntries(
   ]),
 );
 
+interface DeploymentRenderer extends BattleRenderer {
+  setBattleFinishedHandler(handler: () => void): void;
+}
+
 export function mountDeployment(
   host: HTMLElement,
-  renderer: BattleRenderer,
+  renderer: DeploymentRenderer,
 ): void {
   const doc = host.ownerDocument;
   const element = <K extends keyof HTMLElementTagNameMap>(
@@ -60,6 +64,11 @@ export function mountDeployment(
   start.type = 'button';
   start.setAttribute('aria-describedby', status.id);
   const fields: (HTMLInputElement | HTMLSelectElement)[] = [];
+  const detachListeners: (() => void)[] = [];
+  const listen = (target: HTMLElement, event: string, handler: () => void) => {
+    target.addEventListener(event, handler);
+    detachListeners.push(() => target.removeEventListener(event, handler));
+  };
   const refresh = () => {
     start.disabled = !editor.canStartBattle;
     status.textContent =
@@ -121,9 +130,9 @@ export function mountDeployment(
       );
       refresh();
     };
-    type.addEventListener('change', update);
+    listen(type, 'change', update);
     for (const input of [quantity.input, ...ratios])
-      input.addEventListener('input', update);
+      listen(input, 'input', update);
     formations.append(group);
   }
   preparation.append(
@@ -141,7 +150,7 @@ export function mountDeployment(
     const button = element('button', speed === 0 ? 'Pause' : `${speed}×`);
     button.type = 'button';
     button.setAttribute('aria-pressed', String(speed === 1));
-    button.addEventListener('click', () => {
+    listen(button, 'click', () => {
       controller.viewing.setPlaybackSpeed(speed);
       buttons.forEach((other, index) =>
         other.setAttribute(
@@ -158,7 +167,7 @@ export function mountDeployment(
     return button;
   });
   preparation.append(start);
-  start.addEventListener('click', () => {
+  listen(start, 'click', () => {
     if (!editor.canStartBattle) {
       refresh();
       return;
@@ -173,6 +182,14 @@ export function mountDeployment(
     buttons[0].focus();
   });
   host.className = 'battle-ui';
-  host.append(preparation, status, viewing);
+  host.replaceChildren(preparation, status, viewing);
   refresh();
+  // One replaceable scene callback, never one listener per frame or per phase.
+  renderer.setBattleFinishedHandler(() => {
+    for (const detach of detachListeners) detach();
+    // Repeated prototype battles replenish the configured inventory. Campaign
+    // survivor/progression carryover belongs to the Task 8 integration.
+    mountDeployment(host, renderer);
+    host.querySelector<HTMLSelectElement>('select')?.focus();
+  });
 }

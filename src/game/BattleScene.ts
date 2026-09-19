@@ -24,6 +24,7 @@ export class BattleScene extends Phaser.Scene {
   private prompt!: Phaser.GameObjects.Text;
   private progress!: Phaser.GameObjects.Rectangle;
   private duration = 1;
+  private battleFinishedHandler: (() => void) | undefined;
 
   constructor(private readonly onReady?: (scene: BattleScene) => void) {
     super('BattleScene');
@@ -50,6 +51,7 @@ export class BattleScene extends Phaser.Scene {
       this.playback.clear();
       this.pool.releaseAll();
       this.sprites.clear();
+      this.battleFinishedHandler = undefined;
     });
     this.onReady?.(this);
   }
@@ -75,8 +77,14 @@ export class BattleScene extends Phaser.Scene {
     this.playbackSpeed = speed;
   }
 
+  /** Replaces the single preparation-owner callback; does not add listeners. */
+  setBattleFinishedHandler(handler: () => void): void {
+    this.battleFinishedHandler = handler;
+  }
+
   update(_time: number, delta: number): void {
     if (!this.pool) return;
+    const previousPhase = this.playback.phase;
     this.playback.advance(Math.min(delta, 100), this.playbackSpeed);
     const { phase, time } = this.playback;
     this.game.canvas.dataset.phase = phase;
@@ -140,6 +148,8 @@ export class BattleScene extends Phaser.Scene {
         : `VIEW ONLY · ${this.playbackSpeed === 0 ? 'PAUSED' : `${this.playbackSpeed}×`}`,
     );
     this.progress.setScale(Math.min(1, time / this.duration), 1);
+    if (previousPhase === 'returning' && phase === 'preparing')
+      this.battleFinishedHandler?.();
   }
 
   private drawArrows(): void {

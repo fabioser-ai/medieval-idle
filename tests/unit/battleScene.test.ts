@@ -1,6 +1,9 @@
 import { beforeEach, expect, it, vi } from 'vitest';
 import { BattleSession } from '../../src/application/battleSession';
+import type { BattlePhase } from '../../src/application/battleSession';
 import { demoArmies } from '../../src/game/demoBattle';
+import { mountDeployment } from '../../src/ui/deploymentView';
+import { ElementBoundary } from '../domBoundary';
 import type {
   BattleEvent,
   BattleEventLog,
@@ -181,12 +184,88 @@ it('waits for deployment, announces readiness, and accepts only renderer playbac
   expect(scene.playback.time).toBe(200);
   expect(() => scene.setPlaybackSpeed(3 as never)).toThrow(/speed/);
 });
+
+it('restores one fresh editor only after return and starts consecutive battles without retaining UI listeners', () => {
+  const host = new ElementBoundary('div');
+  const scene = new BattleScene((readyScene) =>
+    mountDeployment(host as unknown as HTMLElement, readyScene),
+  );
+  scene.create();
+  const initialNodeCount = host.all().length;
+  for (const quantity of [4, 7]) {
+    const current = host.all();
+    expect(current).toHaveLength(initialNodeCount);
+    expect(current.filter((node) => node.tag === 'fieldset')).toHaveLength(5);
+    expect(
+      current.find((node) => node.id === 'inventory-infantry')!.textContent,
+    ).toContain('Recruit 12');
+    const input = current.find(
+      (node) => node.attributes['aria-label'] === 'Front quantity',
+    )!;
+    input.value = String(quantity);
+    input.fire('input');
+    const start = current.find((node) => node.textContent === 'To Battle')!;
+    expect(start.disabled).toBe(false);
+    start.fire('click');
+    expect(scene.playback.counts.left).toBe(quantity);
+    const preparation = current.find(
+      (node) => node.attributes['aria-label'] === 'Deploy your army',
+    )!;
+    expect(preparation.hidden).toBe(true);
+    scene.setPlaybackSpeed(4);
+    tickUntilPhase(scene, 'returning');
+    expect(preparation.hidden).toBe(true);
+    expect(input.disabled).toBe(true);
+    scene.setPlaybackSpeed(0);
+    tick(scene, 1000);
+    expect(host.all()).toContain(preparation);
+    expect(preparation.hidden).toBe(true);
+    scene.setPlaybackSpeed(4);
+    tickUntilPhase(scene, 'preparing');
+    expect(host.all()).not.toContain(preparation);
+    expect(
+      host
+        .all()
+        .find((node) => node.attributes['aria-label'] === 'Deploy your army')!
+        .hidden,
+    ).toBe(false);
+    expect(
+      host
+        .all()
+        .find((node) => node.attributes['aria-label'] === 'Front unit type')!
+        .focused,
+    ).toBe(true);
+    expect(
+      current.reduce(
+        (sum, node) => sum + Object.keys(node.listeners).length,
+        0,
+      ),
+    ).toBe(0);
+    const nextNodes = host.all();
+    tick(scene, 1000);
+    expect(host.all()).toEqual(nextNodes); // No repeated remounts while resting.
+    const oldSpeed = scene.playbackSpeed;
+    current.find((node) => node.textContent === 'Pause')!.fire('click');
+    expect(scene.playbackSpeed).toBe(oldSpeed);
+    expect(boundary.image).toHaveBeenCalledTimes(800);
+  }
+});
 function views() {
   return boundary.images.filter((view) => view.active);
 }
 function tick(scene: BattleScene, milliseconds: number) {
   for (let t = 0; t < milliseconds; t += 50)
     scene.update(0, Math.min(50, milliseconds - t));
+}
+
+function tickUntilPhase(scene: BattleScene, phase: BattlePhase): void {
+  const timeout = 120_000;
+  let elapsed = 0;
+  while (scene.playback.phase !== phase && elapsed < timeout) {
+    tick(scene, 50);
+    elapsed += 50;
+  }
+  expect(scene.playback.phase).toBe(phase);
 }
 
 it('starts every demo soldier behind its gate and fans out continuously only after emergence', () => {
