@@ -92,6 +92,22 @@ export function battlefieldPoint(
     y: Math.round(153 + 56 * (1 - Math.abs(p)) + lanes[slot] + (index % 5) * 3),
   };
 }
+
+/** Gate aperture first, then progressively unfold the lane and rank offsets.
+ * The same path folds survivors back into their gate on the return leg. */
+export function displayedUnitPoint(view: VisualCohort & { position: number }): {
+  x: number;
+  y: number;
+} {
+  const side = view.unit.side === 'left' ? 1 : -1;
+  const emergence = Math.max(0, Math.min(1, (view.position * side + 1) / 0.25));
+  const point = battlefieldPoint(view.position, view.unit.slot, view.id);
+  const spread = (Math.floor(view.id / 5) % 7) * 3;
+  return {
+    x: Math.round(point.x - 1 - spread * side * emergence),
+    y: Math.round(147 + (point.y - 147) * emergence),
+  };
+}
 export function unitFrame(milliseconds: number, index: number): number {
   return Math.floor(milliseconds / 160 + index) % 2;
 }

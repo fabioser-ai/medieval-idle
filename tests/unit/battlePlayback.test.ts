@@ -71,6 +71,26 @@ function fixture(): BattleResult {
 }
 
 describe('BattlePlayback', () => {
+  it('continues charging beyond the charge anchor before the first attack', () => {
+    const base = fixture();
+    const log = new BattleEventLogBuilder();
+    log.push({ type: 'march-started', side: 'left', tick: 0 });
+    log.push({
+      type: 'charge-started',
+      side: 'left',
+      tick: 0,
+      unitId: 1,
+      targetId: 2,
+      position: -0.9,
+      distance: 0.28,
+    });
+    const playback = new BattlePlayback();
+    playback.load({ ...base, events: log.finish() });
+    playback.advance(800, 1);
+    for (let i = 0; i < 100; i++) playback.advance(50, 1);
+    expect(playback.units[0].position).toBeCloseTo(-0.725);
+  });
+
   it('keeps the aggregated view until its last member dies without remapping survivors', () => {
     const base = fixture();
     const initialUnits = Array.from({ length: 2000 }, (_, i) => ({

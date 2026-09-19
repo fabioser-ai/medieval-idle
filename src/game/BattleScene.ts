@@ -6,7 +6,7 @@ import {
 import type { BattleResult } from '../domain/battleEvents';
 import { BattlePlayback } from './BattlePlayback';
 import {
-  battlefieldPoint,
+  displayedUnitPoint,
   densityLabel,
   unitFrame,
 } from './battlePresentation';
@@ -108,21 +108,25 @@ export class BattleScene extends Phaser.Scene {
         this.sprites.delete(unit.id);
         continue;
       }
-      const point = battlefieldPoint(unit.position, unit.unit.slot, unit.id);
+      const point = displayedUnitPoint(unit);
       const side = unit.unit.side === 'left' ? 1 : -1;
-      const spread = (Math.floor(unit.id / 5) % 7) * 3;
       const action = unit.attackUntil > time ? 'attack' : 'march';
-      const frame =
-        phase === 'gates' || this.playbackSpeed === 0
-          ? 0
-          : unitFrame(time, unit.id);
+      const frame = phase === 'gates' ? 0 : unitFrame(time, unit.id);
       sprite.setTexture(
         textureKey(unit.unit.type, unit.unit.side, action, frame),
       );
-      sprite
-        .setPosition(point.x - spread * side, point.y)
-        .setDepth(point.y + 100);
-      sprite.setVisible(time >= 650);
+      sprite.setPosition(point.x, point.y).setDepth(point.y + 100);
+      // Keep even the horse silhouette inside the closed gate aperture. Release
+      // the edge crop gradually as its anchor leaves the gate, and fold it on return.
+      const gateX = unit.unit.side === 'left' ? 59 : 419;
+      const crop = Math.max(0, 3 - Math.abs(point.x - gateX));
+      sprite.setCrop(crop, 0, 20 - crop * 2, 20);
+      sprite.setVisible(true);
+      sprite.setFlipX(
+        phase === 'returning'
+          ? unit.unit.side === 'left'
+          : unit.unit.side === 'right',
+      );
       if (unit.dying) {
         const fade = Math.min(1, (time - unit.deathAt) / 280);
         sprite.setAngle(side * fade * 90).setAlpha(1 - fade);
@@ -162,8 +166,8 @@ export class BattleScene extends Phaser.Scene {
     for (const arrow of this.playback.arrows) {
       if (!arrow.active) continue;
       const t = Math.min(1, (this.playback.time - arrow.born) / 500);
-      const a = battlefieldPoint(arrow.from, arrow.slot, arrow.lane);
-      const b = battlefieldPoint(arrow.to, arrow.slot, arrow.lane);
+      const a = arrow.from;
+      const b = arrow.to;
       const x = Math.round(a.x + (b.x - a.x) * t);
       const y = Math.round(
         a.y + (b.y - a.y) * t - Math.sin(t * Math.PI) * 28 - 12,

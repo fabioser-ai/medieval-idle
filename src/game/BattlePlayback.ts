@@ -3,12 +3,14 @@ import type { BattleEvent, BattleResult } from '../domain/battleEvents';
 import { COMBAT_TUNING } from '../domain/combatRules';
 import {
   aggregateUnits,
+  displayedUnitPoint,
   EventCursor,
   type VisualCohort,
 } from './battlePresentation';
 
 export interface PresentedUnit extends VisualCohort {
   position: number;
+  destination: number;
   charged: boolean;
   fighting: boolean;
   attackUntil: number;
@@ -19,10 +21,8 @@ export interface PresentedUnit extends VisualCohort {
 }
 export interface Arrow {
   active: boolean;
-  from: number;
-  to: number;
-  slot: PresentedUnit['unit']['slot'];
-  lane: number;
+  from: { x: number; y: number };
+  to: { x: number; y: number };
   born: number;
 }
 
@@ -35,10 +35,8 @@ export class BattlePlayback {
   units: PresentedUnit[] = [];
   readonly arrows: Arrow[] = Array.from({ length: 64 }, () => ({
     active: false,
-    from: 0,
-    to: 0,
-    slot: 'front',
-    lane: 0,
+    from: { x: 0, y: 0 },
+    to: { x: 0, y: 0 },
     born: 0,
   }));
   counts = { left: 0, right: 0 };
@@ -63,6 +61,10 @@ export class BattlePlayback {
     this.units = aggregation.views.map((v) => ({
       ...v,
       position: v.unit.position,
+      destination:
+        (v.unit.side === 'left' ? -1 : 1) *
+        COMBAT_TUNING.unitStats[v.unit.type].range *
+        0.025,
       charged: false,
       fighting: false,
       attackUntil: 0,
@@ -83,25 +85,20 @@ export class BattlePlayback {
     const delta = this.cursor.pending ? 0 : milliseconds * speed;
     this.time += delta;
     for (const unit of this.units) {
+      unit.fighting = unit.attackUntil > this.time;
       if (unit.dying) {
         if (this.time - unit.deathAt >= 280) unit.visible = false;
       } else if (this.phase === 'returning') {
         const progress = Math.min(1, (this.time - this.returnAt) / 3000);
         unit.position =
           unit.returnFrom + (unit.unit.position - unit.returnFrom) * progress;
-      } else if (
-        this.phase !== 'gates' &&
-        this.phase !== 'result' &&
-        !unit.fighting
-      ) {
+      } else if (this.phase !== 'gates' && this.phase !== 'result') {
         const stats = COMBAT_TUNING.unitStats[unit.unit.type];
         const step =
           (delta / 1000) * stats.moveSpeed * 0.05 * (unit.charged ? 1 : 0.6);
-        const limit = stats.range * 0.025;
-        unit.position =
-          unit.unit.side === 'left'
-            ? Math.min(-limit, unit.position + step)
-            : Math.max(limit, unit.position - step);
+        const distance = unit.destination - unit.position;
+        unit.position +=
+          Math.sign(distance) * Math.min(step, Math.abs(distance));
       }
     }
     for (const arrow of this.arrows)
@@ -138,7 +135,6 @@ export class BattlePlayback {
         const unit = this.getUnit(event.unitId);
         if (unit) {
           unit.charged = true;
-          unit.position = event.position;
         }
         if (this.phase !== 'fighting') this.phase = 'charging';
         break;
@@ -148,24 +144,24 @@ export class BattlePlayback {
         const target = this.getUnit(event.targetId);
         if (unit && !unit.dying) {
           unit.fighting = true;
-          unit.position = event.attackerPosition;
+          // Event anchors steer the rendered position; they never teleport it.
+          // Later attack/target anchors include pursuit after earlier contact.
+          unit.destination = event.attackerPosition;
           // Coalesces many simulation attacks onto one visual attack pulse.
           if (unit.attackUntil <= this.time) {
             unit.attackUntil = this.time + 220;
-            if (unit.unit.type === 'archer') {
+            if (unit.unit.type === 'archer' && target) {
               const arrow = this.arrows[this.arrowIndex++ % this.arrows.length];
+              Object.assign(arrow.from, displayedUnitPoint(unit));
+              Object.assign(arrow.to, displayedUnitPoint(target));
               Object.assign(arrow, {
                 active: true,
-                from: event.attackerPosition,
-                to: event.targetPosition,
-                slot: unit.unit.slot,
-                lane: unit.id,
                 born: this.time,
               });
             }
           }
         }
-        if (target && !target.dying) target.position = event.targetPosition;
+        if (target && !target.dying) target.destination = event.targetPosition;
         this.phase = 'fighting';
         break;
       }
