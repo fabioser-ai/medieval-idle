@@ -24,8 +24,8 @@ it('keeps real seed626 pursuit continuous after attacks instead of snapping to l
       if (before[unit.id].attacked && step > 0) movedAfterAttack = true;
     }
   }
-  // Fastest unit: 1.5 speed × .05 distance scale × .05 seconds.
-  expect(maxStep).toBeLessThanOrEqual(0.003750001);
+  // Fastest V2 cavalry charge: 1.5 speed × .05 scale × .05 seconds × 1.45.
+  expect(maxStep).toBeLessThanOrEqual(0.005437501);
   expect(movedAfterAttack).toBe(true);
   expect(playback.counts.left).toBe(totalLivingUnits(result.leftSurvivors));
   expect(playback.counts.right).toBe(totalLivingUnits(result.rightSurvivors));

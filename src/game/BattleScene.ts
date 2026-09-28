@@ -18,6 +18,7 @@ export class BattleScene extends Phaser.Scene {
   private pool!: UnitViewPool<Phaser.GameObjects.Image>;
   private readonly sprites = new Map<number, Phaser.GameObjects.Image>();
   private arrows!: Phaser.GameObjects.Graphics;
+  private armyMass!: Phaser.GameObjects.Graphics;
   private gates: Phaser.GameObjects.Rectangle[] = [];
   private leftBadge!: Phaser.GameObjects.Text;
   private rightBadge!: Phaser.GameObjects.Text;
@@ -52,6 +53,7 @@ export class BattleScene extends Phaser.Scene {
           .setAngle(0)
           .setScale(1),
     );
+    this.armyMass = this.add.graphics().setDepth(260);
     this.arrows = this.add.graphics().setDepth(450);
     this.drawLabels();
     const cleanup = () => {
@@ -127,6 +129,7 @@ export class BattleScene extends Phaser.Scene {
       this.battleResultHandler?.();
     this.game.canvas.dataset.phase = phase;
     this.game.canvas.dataset.playbackTime = String(time);
+    this.drawArmyMass();
     for (const unit of this.playback.units) {
       const sprite = this.sprites.get(unit.id);
       if (!sprite) continue;
@@ -142,7 +145,10 @@ export class BattleScene extends Phaser.Scene {
       sprite.setTexture(
         textureKey(unit.unit.type, unit.unit.side, action, frame),
       );
-      sprite.setPosition(point.x, point.y).setDepth(point.y + 100);
+      sprite
+        .setPosition(point.x, point.y)
+        .setDepth(point.y + 100)
+        .setScale(0.72);
       // Keep even the horse silhouette inside the closed gate aperture. Release
       // the edge crop gradually as its anchor leaves the gate, and fold it on return.
       const gateX = unit.unit.side === 'left' ? 59 : 419;
@@ -189,6 +195,34 @@ export class BattleScene extends Phaser.Scene {
     if (previousPhase === 'returning' && phase === 'preparing') {
       this.audio.stop();
       this.battleFinishedHandler?.();
+    }
+  }
+
+  private drawArmyMass(): void {
+    this.armyMass.clear();
+    const phase = this.playback.phase;
+    const active = !['preparing', 'gates'].includes(phase);
+    if (!active) return;
+    for (const unit of this.playback.units) {
+      if (!unit.visible || unit.dying || unit.aliveCount <= 1) continue;
+      const p = displayedUnitPoint(unit);
+      const color = unit.unit.side === 'left' ? 0x7fb5d1 : 0xd98a72;
+      const dark = unit.unit.side === 'left' ? 0x416f8a : 0x8d4e42;
+      const count = Math.min(
+        18,
+        Math.max(2, Math.ceil(Math.sqrt(unit.aliveCount) * 2.2)),
+      );
+      const side = unit.unit.side === 'left' ? 1 : -1;
+      const charge = phase === 'charging' ? 1.7 : 1;
+      for (let i = 0; i < count; i++) {
+        const row = Math.floor(i / 6);
+        const col = i % 6;
+        const jitter = ((unit.id * 17 + i * 11) % 5) - 2;
+        const x = p.x - side * (col * 3.2 * charge + 3) + jitter * 0.35;
+        const y = p.y + (row - 1) * 2.8 + (((i + unit.id) % 3) - 1) * 0.45;
+        this.armyMass.fillStyle(i % 4 === 0 ? dark : color, 0.92);
+        this.armyMass.fillRect(Math.round(x), Math.round(y), 2, 2);
+      }
     }
   }
 

@@ -121,11 +121,11 @@ describe('battle presentation', () => {
   });
 
   it('maps gates, valley and formation lanes into crisp logical pixels', () => {
-    expect(battlefieldPoint(-1, 'front', 0)).toEqual({ x: 60, y: 153 });
-    expect(battlefieldPoint(1, 'front', 0)).toEqual({ x: 420, y: 153 });
-    expect(battlefieldPoint(0, 'front', 0)).toEqual({ x: 240, y: 209 });
-    expect(battlefieldPoint(-8, 'front', 0).x).toBe(60);
-    expect(battlefieldPoint(0, 'rear', 1).y).not.toBe(209);
+    expect(battlefieldPoint(-1, 'front', 0)).toEqual({ x: 35, y: 148 });
+    expect(battlefieldPoint(1, 'front', 0)).toEqual({ x: 445, y: 148 });
+    expect(battlefieldPoint(0, 'front', 0)).toEqual({ x: 240, y: 214 });
+    expect(battlefieldPoint(-8, 'front', 0).x).toBe(35);
+    expect(battlefieldPoint(0, 'rear', 1).y).not.toBe(214);
     expect(unitFrame(0, 0)).toBe(0);
     expect(unitFrame(160, 0)).toBe(1);
     expect(unitFrame(320, 0)).toBe(0);

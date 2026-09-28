@@ -78,14 +78,31 @@ export function mountDeployment(
     inventory.append(row);
     return row;
   });
-  preparation.append(element('h3', 'Remaining troops'), inventory);
   const formations = element('div', '', 'formations');
+  const quick = element('section', '', 'quick-deployment');
+  quick.setAttribute('aria-label', 'Quick battle plan');
+  quick.append(
+    element('h3', 'Choose your battle plan'),
+    element(
+      'p',
+      'Pick a plan and march. Detailed formation controls are optional.',
+      'intro',
+    ),
+  );
+  const quickPlans = element('div', '', 'quick-plans');
+  quick.append(quickPlans);
+  const advanced = element('details');
+  advanced.className = 'advanced-deployment';
+  advanced.append(element('summary', 'Advanced deployment'));
+  const advancedBody = element('div', '', 'advanced-deployment-body');
+  advancedBody.append(element('h3', 'Remaining troops'), inventory);
+  advanced.append(advancedBody);
   const status = element('p', '', 'status');
   status.id = 'deployment-status';
   status.setAttribute('role', 'status');
   status.setAttribute('aria-live', 'polite');
   status.setAttribute('aria-atomic', 'true');
-  const start = element('button', 'To Battle', 'start');
+  const start = element('button', 'March to Battle', 'start');
   start.type = 'button';
   start.setAttribute('aria-describedby', status.id);
   const fields: (HTMLInputElement | HTMLSelectElement)[] = [];
@@ -164,7 +181,7 @@ export function mountDeployment(
     });
     fields.push(select);
     details.append(select);
-    preparation.append(details);
+    advancedBody.append(details);
   }
   const lastResult = element('p', '', 'intro');
   lastResult.id = 'last-result';
@@ -184,6 +201,15 @@ export function mountDeployment(
         `${type[0].toUpperCase() + type.slice(1)} · ${EXPERIENCE_TIERS.map((tier) => `${tier[0].toUpperCase() + tier.slice(1)} ${editor.remaining(type, tier)}`).join(' · ')}`;
     });
   };
+  const slotFields = new Map<
+    string,
+    {
+      type: HTMLSelectElement;
+      quantity: HTMLInputElement;
+      ratios: HTMLInputElement[];
+      update: () => void;
+    }
+  >();
   for (const slot of FORMATION_SLOTS) {
     const initial =
       options.prefill !== false
@@ -246,10 +272,11 @@ export function mountDeployment(
     listen(type, 'change', update);
     for (const input of [quantity.input, ...ratios])
       listen(input, 'input', update);
+    slotFields.set(slot, { type, quantity: quantity.input, ratios, update });
     if (initial) update();
     formations.append(group);
   }
-  preparation.append(
+  advancedBody.append(
     formations,
     element(
       'p',
@@ -257,6 +284,89 @@ export function mountDeployment(
       'rounding-note',
     ),
   );
+  const plans = [
+    {
+      name: 'Balanced',
+      note: 'Infantry holds the center, archers support, cavalry threatens the flank.',
+      slots: [
+        ['front', 'infantry', 16],
+        ['middle', 'spearman', 8],
+        ['rear', 'archer', 10],
+        ['left-flank', 'cavalry', 6],
+        ['right-flank', 'infantry', 0],
+      ],
+    },
+    {
+      name: 'Shield Wall',
+      note: 'A heavier infantry and spear line with fewer troops committed to the flank.',
+      slots: [
+        ['front', 'infantry', 18],
+        ['middle', 'spearman', 12],
+        ['rear', 'archer', 8],
+        ['left-flank', 'cavalry', 2],
+        ['right-flank', 'infantry', 0],
+      ],
+    },
+    {
+      name: 'Hammer & Anvil',
+      note: 'A compact center with a stronger cavalry wing for a dramatic charge.',
+      slots: [
+        ['front', 'spearman', 12],
+        ['middle', 'infantry', 10],
+        ['rear', 'archer', 8],
+        ['left-flank', 'cavalry', 10],
+        ['right-flank', 'infantry', 0],
+      ],
+    },
+  ] as const;
+  const applyPlan = (plan: (typeof plans)[number]) => {
+    for (const [slot, unitType, count] of plan.slots) {
+      const field = slotFields.get(slot);
+      if (!field) continue;
+      field.type.value = unitType;
+      field.quantity.value = String(count);
+      const available = EXPERIENCE_TIERS.map(
+        (tier) => campaign.inventory[unitType]?.[tier] ?? 0,
+      );
+      const use = available.map(() => 0);
+      let remaining = count;
+      for (let i = 0; i < available.length && remaining > 0; i++) {
+        use[i] = Math.min(available[i], remaining);
+        remaining -= use[i];
+      }
+      const total = use.reduce((sum, n) => sum + n, 0);
+      field.quantity.value = String(total);
+      let assignedPercent = 0;
+      field.ratios.forEach((input, index) => {
+        const percent =
+          index === field.ratios.length - 1
+            ? 100 - assignedPercent
+            : total > 0
+              ? Math.floor((use[index] * 100) / total)
+              : index === 0
+                ? 100
+                : 0;
+        input.value = String(percent);
+        assignedPercent += percent;
+      });
+      field.update();
+    }
+  };
+  plans.forEach((plan, index) => {
+    const button = element('button', '', 'quick-plan');
+    button.type = 'button';
+    button.setAttribute('aria-pressed', String(index === 0));
+    button.append(element('strong', plan.name), element('span', plan.note));
+    listen(button, 'click', () => {
+      applyPlan(plan);
+      [...quickPlans.querySelectorAll('button')].forEach((other) =>
+        other.setAttribute('aria-pressed', String(other === button)),
+      );
+    });
+    quickPlans.append(button);
+  });
+  preparation.append(quick, advanced);
+  if (!preset && options.prefill !== false) applyPlan(plans[0]);
   const viewing = element('nav', '', 'viewing-controls');
   viewing.hidden = true;
   viewing.setAttribute('aria-label', 'Battle playback');
