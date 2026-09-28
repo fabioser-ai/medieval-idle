@@ -98,9 +98,15 @@ export class SampleSoundscape {
     this.cavalry?.source.stop();
     this.drums?.source.stop();
     this.cavalry = undefined;
+    this.drums = undefined;
     if (this.context) void this.context.close().catch(() => {});
     this.context = undefined;
     this.buffers.clear();
+    this.loading = undefined;
+    this.lastPhase = undefined;
+    this.lastMarch = 0;
+    this.lastArrowCount = 0;
+    this.lastAttackCount = 0;
   }
 
   private async load(): Promise<void> {
@@ -116,7 +122,7 @@ export class SampleSoundscape {
             const buffer = await context.decodeAudioData(
               await response.arrayBuffer(),
             );
-            this.buffers.set(path, buffer);
+            if (this.context === context) this.buffers.set(path, buffer);
           } catch {
             // Missing/unsupported samples are intentionally silent; synth fallback remains.
           }

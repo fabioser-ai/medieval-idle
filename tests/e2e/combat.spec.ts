@@ -24,7 +24,9 @@ test('normal-route depleted campaign recovery is explicit, cancelable, persisted
     ),
   );
   await page.reload();
-  await expect(page.getByRole('button', { name: 'To Battle' })).toBeDisabled();
+  await expect(
+    page.getByRole('button', { name: 'March to Battle', exact: true }),
+  ).toBeDisabled();
   await page
     .getByRole('button', { name: 'Start new campaign', exact: true })
     .click();
@@ -42,12 +44,22 @@ test('normal-route depleted campaign recovery is explicit, cancelable, persisted
   await expect(
     page.getByRole('button', { name: 'Start new campaign', exact: true }),
   ).toHaveCount(0);
-  await expect(page.locator('#inventory-infantry')).toContainText('Recruit 12');
+  const fresh = await page.evaluate(() =>
+    JSON.parse(localStorage.getItem('medieval-idle.save')!),
+  );
+  expect(fresh.availableCohorts).toContainEqual({
+    type: 'infantry',
+    tier: 'recruit',
+    count: 12,
+    survivedVictories: 0,
+  });
+  await expect(page.locator('#inventory-infantry')).toContainText('Recruit 0');
   await expect(page.locator('#last-result')).toContainText(
     'No completed battle',
   );
-  await page.getByLabel('Front quantity').fill('4');
-  await page.getByRole('button', { name: 'To Battle' }).click();
+  await page
+    .getByRole('button', { name: 'March to Battle', exact: true })
+    .click();
   await expect(
     page.getByRole('navigation', { name: 'Battle playback' }),
   ).toBeVisible();
@@ -105,15 +117,21 @@ for (const scenario of [
       if (message.type() === 'error') errors.push(message.text());
     });
     await page.goto('/?dev=1');
+    await page.getByText('Advanced deployment', { exact: true }).click();
     await page
       .getByText('Developer acceptance presets', { exact: true })
       .click();
     await page.getByLabel('Acceptance preset').selectOption(scenario.id);
-    await expect(page.getByRole('button', { name: 'To Battle' })).toBeEnabled();
-    await page.getByRole('button', { name: 'To Battle' }).click();
     await expect(
-      page.getByRole('button', { name: '4×', exact: true }),
+      page.getByRole('button', { name: 'March to Battle', exact: true }),
+    ).toBeEnabled();
+    await page
+      .getByRole('button', { name: 'March to Battle', exact: true })
+      .click();
+    await expect(
+      page.getByRole('button', { name: '1×', exact: true }),
     ).toHaveAttribute('aria-pressed', 'true');
+    await page.getByRole('button', { name: '4×', exact: true }).click();
     // Summary is written only when the sole renderer clock reaches terminal result.
     await expect(page.locator('#last-result')).toContainText(
       `Last result: ${scenario.outcome}`,
@@ -151,8 +169,9 @@ for (const scenario of [
         JSON.parse(localStorage.getItem('medieval-idle.save')!),
       ),
     ).toEqual(before);
-    await expect(page.locator('#inventory-archer')).toContainText(
-      `Trained ${scenario.left}`,
+    await expect(page.locator('#inventory-archer')).toContainText('Trained 0');
+    await expect(page.getByLabel('Rear quantity')).toHaveValue(
+      String(scenario.left),
     );
     expect(errors).toEqual([]);
   });
@@ -179,13 +198,14 @@ for (const viewport of [
       'preparing',
     );
     await expect(
+      page.getByRole('button', { name: 'March to Battle', exact: true }),
+    ).toBeEnabled();
+    await page.getByText('Advanced deployment', { exact: true }).click();
+    await expect(
       page.getByRole('group', {
         name: /^(Front|Middle|Rear|Left flank|Right flank)$/,
       }),
     ).toHaveCount(5);
-    await expect(
-      page.getByRole('button', { name: 'To Battle' }),
-    ).toBeDisabled();
     await page.getByLabel('Front quantity').fill('-1');
     await expect(page.getByRole('status')).toContainText('Front quantity');
     await page.getByLabel('Front quantity').fill('8');
@@ -193,7 +213,9 @@ for (const viewport of [
     await page.getByLabel('Front trained %').fill('50');
     await page.getByLabel('Rear unit type').selectOption('archer');
     await page.getByLabel('Rear quantity').fill('6');
-    await expect(page.getByRole('button', { name: 'To Battle' })).toBeEnabled();
+    await expect(
+      page.getByRole('button', { name: 'March to Battle', exact: true }),
+    ).toBeEnabled();
     const assertLayout = async () => {
       expect(
         await page.evaluate(
@@ -239,7 +261,9 @@ for (const viewport of [
       ).toBeGreaterThanOrEqual(14);
     };
     await assertLayout();
-    await page.getByRole('button', { name: 'To Battle' }).click();
+    await page
+      .getByRole('button', { name: 'March to Battle', exact: true })
+      .click();
     await expect(
       page.getByRole('region', { name: 'Deploy your army' }),
     ).toBeHidden();
@@ -251,7 +275,7 @@ for (const viewport of [
       '4×',
     ]);
     await expect(
-      page.getByRole('button', { name: '4×', exact: true }),
+      page.getByRole('button', { name: '1×', exact: true }),
     ).toHaveAttribute('aria-pressed', 'true');
     await page.getByRole('button', { name: 'Pause', exact: true }).click();
     await expect(page.getByRole('status')).toContainText('Paused');
