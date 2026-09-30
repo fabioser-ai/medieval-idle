@@ -89,7 +89,7 @@ jobs:
       pages: write
       id-token: write
     environment:
-      name: github-pages
+      name: v2-1-preview
       url: ${{ steps.deployment.outputs.page_url }}v2-1-preview/
     steps:
       - name: Deploy V1 root with V2.1 preview
