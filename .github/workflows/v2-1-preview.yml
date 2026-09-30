@@ -1,0 +1,97 @@
+name: V2.1 Preview
+
+on:
+  push:
+    branches: [feature/v2.1-real-audio]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build-preview:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out published V1
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          path: v1
+
+      - name: Check out V2.1 preview
+        uses: actions/checkout@v4
+        with:
+          ref: feature/v2.1-real-audio
+          path: v2-1
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            v1/package-lock.json
+            v2-1/package-lock.json
+
+      - name: Install V1 dependencies
+        working-directory: v1
+        run: npm ci
+
+      - name: Build published V1 root
+        working-directory: v1
+        run: npm run build
+
+      - name: Install V2.1 dependencies
+        working-directory: v2-1
+        run: npm ci
+
+      - name: Install browser
+        working-directory: v2-1
+        run: npx playwright install --with-deps chromium
+
+      - name: Validate V2.1
+        working-directory: v2-1
+        run: |
+          npm run lint
+          npm run format:check
+          npm test
+          npm run build
+          npm run test:e2e
+
+      - name: Build V2.1 at isolated preview path
+        working-directory: v2-1
+        env:
+          VITE_BASE_PATH: /medieval-idle/v2-1-preview/
+        run: npm run build
+
+      - name: Assemble V1 root and V2.1 preview
+        run: |
+          mkdir -p site/v2-1-preview
+          cp -a v1/dist/. site/
+          cp -a v2-1/dist/. site/v2-1-preview/
+          grep -q '/medieval-idle/' site/index.html
+          grep -q '/medieval-idle/v2-1-preview/' site/v2-1-preview/index.html
+          test -f site/v2-1-preview/audio/v2/horn-charge.ogg
+
+      - name: Upload combined Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+  deploy-preview:
+    needs: build-preview
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}v2-1-preview/
+    steps:
+      - name: Deploy V1 root with V2.1 preview
+        id: deployment
+        uses: actions/deploy-pages@v4

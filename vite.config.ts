@@ -1,9 +1,20 @@
 import { defineConfig } from 'vite';
 
-const repository = process.env.GITHUB_REPOSITORY?.split('/')[1];
+export function resolveBasePath(
+  repositorySlug?: string,
+  override?: string,
+): string {
+  if (override) return override;
+
+  const repository = repositorySlug?.split('/')[1];
+  return repository ? `/${repository}/` : '/';
+}
 
 export default defineConfig({
-  base: repository ? `/${repository}/` : '/',
+  base: resolveBasePath(
+    process.env.GITHUB_REPOSITORY,
+    process.env.VITE_BASE_PATH,
+  ),
   build: {
     chunkSizeWarningLimit: 1400,
   },
