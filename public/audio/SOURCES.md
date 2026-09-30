@@ -1,5 +1,7 @@
 # V2 sample audio library
 
+The shipped V2.1 files and their per-file provenance are documented in [`v2/SOURCES.md`](v2/SOURCES.md).
+
 V2 replaces the oscillator-only battle feel with a layered sample soundscape.
 
 ## License rule
